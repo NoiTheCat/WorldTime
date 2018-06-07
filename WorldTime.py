@@ -19,9 +19,10 @@ bot_token = ''
 import discord
 import asyncio
 
-import sqlite3
 from datetime import datetime
 import pytz
+
+from UserDatabase import UserDatabase
 
 def tsPrint(label, line):
     """
@@ -45,69 +46,7 @@ def tzPrint(zone : str):
     if len(now_time.strftime("%Z")) != 4: padding = ' '
     return "{:s}{:s} | {:s}".format(now_time.strftime(timefmt), padding, zone)
 
-# ---
-# Database things
-
-db = sqlite3.connect('users.db')
-dbcur = db.cursor()
-dbcur.execute('''CREATE TABLE IF NOT EXISTS users(
-    guild TEXT, user TEXT, zone TEXT, lastactive INTEGER,
-    PRIMARY KEY (guild, user)
-)''')
-db.commit()
-
-def db_update_activity(serverid : str, authorid : str):
-    '''
-    If a user exists in the database, updates their last activity timestamp.
-    '''
-    dbcur.execute('''
-        UPDATE users SET lastactive = strftime('%s', 'now')
-        WHERE guild = '{0}' AND user = '{1}'
-    '''.format(serverid, authorid))
-    db.commit()
-
-def db_delete_user(serverid : str, authorid : str):
-    '''
-    Deletes existing user from the database.
-    '''
-    dbcur.execute('''
-        DELETE FROM users
-        WHERE guild = '{0}' AND user = '{1}'
-    '''.format(serverid, authorid))
-    db.commit()
-
-def db_update_user(serverid : str, authorid : str, zone : str):
-    '''
-    Insert or update user in the database.
-    Does not do any sanitizing of incoming values, as only a small set of
-    values are allowed anyway. This is enforced by the caller.
-    '''
-    db_delete_user(serverid, authorid)
-    dbcur.execute('''
-        INSERT INTO users VALUES
-        ('{0}', '{1}', '{2}', strftime('%s', 'now'))
-    '''.format(serverid, authorid, zone))
-    db.commit()
-
-def db_get_list(serverid, userid=None):
-    c = db.cursor()
-    if userid is None:
-        c.execute('''
-        SELECT zone, count(*) as ct FROM users
-        WHERE guild = '{0}'
-        AND lastactive >= strftime('%s','now') - (72 * 60 * 60) -- only users active in the last 72 hrs
-        GROUP BY zone -- separate by popularity
-        ORDER BY ct DESC LIMIT 10 -- top 10 zones are given
-        '''.format(serverid))
-    else:
-        c.execute('''
-        SELECT zone, '0' as ct FROM users
-        WHERE guild = '{0}' AND user = '{1}'
-        '''.format(serverid, userid))
-        
-    results = c.fetchall()
-    c.close()
-    return [i[0] for i in results]
+db = UserDatabase('users.db')
 
 # ---
 # Command things
@@ -148,14 +87,17 @@ async def cmd_list(message : discord.Message):
     else:
         await cmd_list_userparam(message, wspl[1])
 async def cmd_list_noparam(message : discord.Message):
-    clist = db_get_list(message.channel.server.id)
+    clist = db.get_list(message.channel.server.id)
     if len(clist) == 0:
         await bot.send_message(message.channel, ':x: No users with known zones have been active in the last 72 hours.')
         return
-    clist.sort()
+    resultarr = []
+    for i in clist:
+        resultarr.append(tzPrint(i))
+    resultarr.sort()
     resultstr = '```\n'
-    for z in clist:
-        resultstr += tzPrint(z) + '\n'
+    for i in resultarr:
+        resultstr += i + '\n'
     resultstr += '```'
     await bot.send_message(message.channel, resultstr)
 async def cmd_list_userparam(message : discord.Message, param):
@@ -168,7 +110,7 @@ async def cmd_list_userparam(message : discord.Message, param):
         # Didn't get an ID...
         await bot.send_message(message.channel, ':x: You must specify a user by ID or `@` mention.')
         return
-    res = db_get_list(message.channel.server.id, param)
+    res = db.get_list(message.channel.server.id, param)
     if len(res) == 0:
         spaghetti = message.author.id == param
         if spaghetti: await bot.send_message(message.channel, ':x: You do not have a time zone. Set it with `tz.set`.')
@@ -202,11 +144,11 @@ async def cmd_set(message : discord.Message):
     except KeyError:
         await bot.send_message(message.channel, ':x: Not a valid zone name.')
         return
-    db_update_user(message.channel.server.id, message.author.id, zoneinput)
+    db.update_user(message.channel.server.id, message.author.id, zoneinput)
     await bot.send_message(message.channel, ':white_check_mark: Your zone has been set.')
 
 async def cmd_remove(message : discord.Message):
-    db_delete_user(message.channel.server.id, message.author.id)
+    db.delete_user(message.channel.server.id, message.author.id)
     await bot.send_message(message.channel, ':white_check_mark: Your zone has been removed.')
 
 cmdlist = {
@@ -250,7 +192,7 @@ async def on_message(message : discord.Message):
         await bot.send_message(message.channel, '''I can't work over DMs...''')
         # to do: small cache to not flood users who can't take a hint
         return
-    db_update_activity(message.server.id, message.author.id)
+    db.update_activity(message.server.id, message.author.id)
     await command_dispatch(message)
 
 # ---
