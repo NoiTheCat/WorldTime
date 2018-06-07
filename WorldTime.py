@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-# World Time, the Discord bot. Displays user time zones.
-# Original links:
+# World Time, a Discord bot. Displays user time zones.
 # - https://github.com/Noikoio/WorldTime
-# - https://discordapp.com/oauth2/authorize?client_id=447266583459528715&scope=bot
+# - https://bots.discord.pw/bots/447266583459528715
 
 # -----------
+# Required:
 bot_token = ''
+# Optional. Don't delete or modify in a self-hosted instance.
+dbots_token = ''
 # -----------
 
 # Bad code ahead. I knew next to nothing about Python and I also made hasty desicions throughout.
@@ -196,6 +198,29 @@ async def on_message(message : discord.Message):
     await command_dispatch(message)
 
 # ---
+# This periodically sends the server count to Discord Bots.
+# If you're not the original author of this bot, you have no reason at all to be using this.
+if dbots_token != '':
+    import aiohttp
+    async def dbots_update():
+        await bot.wait_until_ready()
+        while not bot.is_closed:
+            serverct = len(bot.servers)
+            async with aiohttp.ClientSession() as session:
+                rurl = "https://bots.discord.pw/api/bots/{}/stats".format(bot.user.id)
+                rdata = { "server_count": serverct }
+                rhead = { "Content-Type": "application/json", "Authorization": dbots_token }
+                try:
+                    await session.post(rurl, json=rdata, headers=rhead)
+                    tsPrint("Report", "Reporting {0} guild(s) to Discord Bots.".format(serverct))
+                except aiohttp.ClientError as e:
+                    tsPrint("Report", "Discord Bots API report failed: {}".format(e))
+            await asyncio.sleep(21600) # Update once every six hours
 
-tsPrint('Status', 'Hello. Using users.db for database.')
-bot.run(bot_token)
+# ---
+
+if __name__ == '__main__':
+    tsPrint('Status', 'Hello. Using users.db for database.')
+    if dbots_token != '':
+        bot.loop.create_task(dbots_update())
+    bot.run(bot_token)
