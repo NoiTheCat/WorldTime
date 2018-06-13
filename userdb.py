@@ -1,7 +1,12 @@
+# Abstracts away details of the SQLite database that stores user information.
+
 import sqlite3
 
 class UserDatabase:
     def __init__(self, dbname):
+        '''
+        Sets up the SQLite session for the user database.
+        '''
         self.db = sqlite3.connect(dbname)
         cur = self.db.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS users(
