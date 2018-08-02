@@ -2,11 +2,12 @@
 
 import discord
 import asyncio
+import aiohttp
 
 from datetime import datetime
 import pytz
 
-import aiohttp
+import settings
 from userdb import UserDatabase
 
 # For case-insensitive time zone lookup, map lowercase tzdata entries with
@@ -35,6 +36,7 @@ class WorldTime(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.udb = UserDatabase('users.db')
+        self.bg_task = self.loop.create_task(self.periodic_report())
 
     async def on_ready(self):
         tsPrint('Status', 'Connected as {0} ({1})'.format(self.user.name, self.user.id))
@@ -86,6 +88,7 @@ This bot uses zone names from the tz database. Most common zones are supported. 
 
     async def cmd_list_userparam(self, message, param):
         # wishlist: search based on username/nickname
+        param = str(param)
         if param.startswith('<@!') and param.endswith('>'):
             param = param[3:][:-1]
         if param.startswith('<@') and param.endswith('>'):
@@ -167,3 +170,31 @@ This bot uses zone names from the tz database. Most common zones are supported. 
             return
         self.udb.update_activity(message.guild.id, message.author.id)
         await self.command_dispatch(message)
+
+    # ----------------
+
+    async def periodic_report(self):
+        '''
+        Provides a periodic update in console of how many guilds we're on.
+        Reports guild count to Discord Bots. Please don't make use of this unless you're the original author.
+        '''
+        try:
+            authtoken = settings.DBotsApiKey
+        except AttributeError:
+            authtoken = ''
+
+        await self.wait_until_ready()
+        while not self.is_closed():
+            guildcount = len(self.guilds)
+            tsPrint("Report", "Currently in {0} guild(s).".format(guildcount))
+            async with aiohttp.ClientSession() as session:
+                if authtoken != '':
+                    rurl = "https://bots.discord.pw/api/bots/{}/stats".format(self.user.id)
+                    rdata = { "server_count": guildcount }
+                    rhead = { "Content-Type": "application/json", "Authorization": authtoken }
+                    try:
+                        await session.post(rurl, json=rdata, headers=rhead)
+                        tsPrint("Report", "Reported count to Discord Bots.")
+                    except aiohttp.ClientError as e:
+                        tsPrint("Report", "Discord Bots API report failed: {}".format(e))
+            await asyncio.sleep(21600) # Repeat once every six hours

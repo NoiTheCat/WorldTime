@@ -9,20 +9,16 @@
 
 # And yes, this code sucks. I don't know Python all too well.
 
-# --------------------------------
-# Required:
-bot_token = ''
-# --------------------------------
-
 from discord import Game
-from client import WorldTime
+from wtclient import WorldTime
+import settings
 
 if __name__ == '__main__':
     try:
-        if bot_token == '': raise NameError() # <- dumb
-    except NameError:
-        print("Bot token not set. Backing out.")
+        if settings.BotToken == '': raise AttributeError() # Cover both scenarios: variable doesn't exist, or variable is empty
+    except AttributeError:
+        print("Bot token not set. Will not continue.")
         exit()
 
     client = WorldTime(activity=Game('tz.help'))
-    client.run(bot_token)
+    client.run(settings.BotToken)
