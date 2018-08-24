@@ -10,7 +10,7 @@
 # And yes, this code sucks. I don't know Python all too well.
 
 from discord import Game
-from wtclient import WorldTime
+from client import WorldTime
 import settings
 
 if __name__ == '__main__':
