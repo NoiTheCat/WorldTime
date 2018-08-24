@@ -4,10 +4,9 @@
 # - https://github.com/Noikoio/WorldTime
 # - https://bots.discord.pw/bots/447266583459528715
 
-# Using discord.py rewrite. To install:
-# pip install -U git+https://github.com/Rapptz/discord.py@rewrite
-
-# And yes, this code sucks. I don't know Python all too well.
+# Dependencies (install via pip or other means):
+# pytz, sqlite3, discord.py@rewrite
+# How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py@rewrite
 
 from discord import Game
 from client import WorldTime
