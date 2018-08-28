@@ -1,4 +1,4 @@
-# Abstracts away details of the SQLite database that stores user information.
+# User database abstractions
 
 import sqlite3
 
@@ -78,3 +78,35 @@ class UserDatabase:
         results = c.fetchall()
         c.close()
         return [i[0] for i in results]
+
+    def get_list2(self, serverid):
+        '''
+        Retrieves data for the tz.list command.
+        Returns a dictionary. Keys are zone name, values are arrays with user IDs.
+        '''
+        c = self.db.cursor()
+        c.execute('''
+        SELECT zone, user
+            FROM users
+        WHERE
+            lastactive >= strftime('%s','now') - (72 * 60 * 60) -- only users active in the last 72 hrs
+            AND guild = '{0}'
+            AND zone in (SELECT zone from (
+                SELECT zone, count(*) as ct
+                FROM users
+                WHERE
+                    guild = '{0}'
+                    AND lastactive >= strftime('%s','now') - (72 * 60 * 60)
+                GROUP BY zone
+                LIMIT 10
+            ))
+            ORDER BY RANDOM() -- Randomize display order (done by consumer)
+        '''.format(serverid))
+        result = {}
+        for row in c:
+            inlist = result.get(row[0])
+            if inlist is None:
+                result[row[0]] = []
+                inlist = result[row[0]]
+            inlist.append(row[1])
+        return result
