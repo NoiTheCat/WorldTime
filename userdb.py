@@ -109,4 +109,15 @@ class UserDatabase:
                 result[row[0]] = []
                 inlist = result[row[0]]
             inlist.append(row[1])
+        c.close()
         return result
+
+    def get_unique_tz_count(self):
+        '''
+        Gets the number of unique time zones in the database.
+        '''
+        c = self.db.cursor()
+        c.execute('SELECT COUNT(DISTINCT zone) FROM users')
+        result = c.fetchall()
+        c.close()
+        return result[0][0]

@@ -6,6 +6,7 @@ from textwrap import dedent
 import discord
 import pytz
 from datetime import datetime
+import subprocess
 
 from userdb import UserDatabase
 from common import tzlcmap, logPrint
@@ -83,10 +84,18 @@ class WtCommands:
     # def cmd_NAME(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str)
 
     async def cmd_help(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
+        # Be a little fancy.
+        versionstr = subprocess.check_output(["git", "describe", "--always"]).strip()
+        tzcount = self.userdb.get_unique_tz_count()
+
         em = discord.Embed(
             color=14742263,
             title='Help & About',
-            description='This bot aims to answer the age-old question, "What time is it for everyone here?"')
+            description=dedent('''
+                "What time is it for everyone here?" - Version `{0}`.
+                Serving {1} communities across {2} time zones.
+            '''.format(versionstr, len(self.dclient.guilds), tzcount))
+        )
         em.set_footer(text='World Time', icon_url=self.dclient.user.avatar_url)
         em.add_field(name='Commands', value=dedent('''
             `tz.help` - This message.
