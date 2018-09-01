@@ -10,53 +10,6 @@ from datetime import datetime
 from userdb import UserDatabase
 from common import tzlcmap, logPrint
 
-# All command functions are expected to have this signature:
-# def cmd_NAME(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str)
-
-def _tzPrint(zone : str):
-    """
-    Returns a string displaying the current time in the given time zone.
-    Resulting string should be placed in a code block.
-    """
-    padding = ''
-    now_time = datetime.now(pytz.timezone(zone))
-    if len(now_time.strftime("%Z")) != 4: padding = ' '
-    return "{:s}{:s} | {:s}".format(now_time.strftime("%H:%M %d-%b %Z%z"), padding, zone)
-
-def _userResolve(guild: discord.Guild, userIds: list):
-    """
-    Given a list with user IDs, returns a string, the second half of a
-    list entry, describing the users for which a zone is represented by.
-    """
-    if len(userIds) == 0:
-        return " -- Representing 0 users. Bug?"
-    
-    # Try given entries. For each entry tried, attempt to get their nickname
-    # or username. Failed attempts are anonymized instead of discarded.
-    # Attempt at most three entries.
-    namesProcessed = 0
-    namesSkipped = 0
-    processedNames = []
-    while namesProcessed < 3 and len(userIds) > 0:
-        namesProcessed += 1
-        uid = userIds.pop()
-        mem = guild.get_member(int(uid))
-        if mem is not None:
-            processedNames.append(mem.display_name)
-        else:
-            namesSkipped += 1
-    leftovers = namesSkipped + len(userIds)
-    if len(processedNames) == 0:
-        return " -- Representing {0} user{1}.".format(leftovers, "s" if leftovers != 1 else "")
-    result = " -- Representing "
-    while len(processedNames) > 0:
-        result += processedNames.pop() + ", "
-    if leftovers != 0:
-        result += "{0} other user{1}.".format(leftovers, "s" if leftovers != 1 else "")
-    else:
-        result = result[:-2] + "."
-    return result
-
 class WtCommands:
     def __init__(self, userdb: UserDatabase, client: discord.Client):
         self.userdb = userdb
@@ -78,7 +31,56 @@ class WtCommands:
         await command(message.guild, message.channel, message.author, message.content)
 
     # ------
+    # Helper methods
+
+    def _tzPrint(self, zone : str):
+        """
+        Returns a string displaying the current time in the given time zone.
+        Resulting string should be placed in a code block.
+        """
+        padding = ''
+        now_time = datetime.now(pytz.timezone(zone))
+        if len(now_time.strftime("%Z")) != 4: padding = ' '
+        return "{:s}{:s} | {:s}".format(now_time.strftime("%H:%M %d-%b %Z%z"), padding, zone)
+
+    def _userResolve(self, guild: discord.Guild, userIds: list):
+        """
+        Given a list with user IDs, returns a string, the second half of a
+        list entry, describing the users for which a zone is represented by.
+        """
+        if len(userIds) == 0:
+            return " -- Representing 0 users. Bug?"
+        
+        # Try given entries. For each entry tried, attempt to get their nickname
+        # or username. Failed attempts are anonymized instead of discarded.
+        # Attempt at most three entries.
+        namesProcessed = 0
+        namesSkipped = 0
+        processedNames = []
+        while namesProcessed < 3 and len(userIds) > 0:
+            namesProcessed += 1
+            uid = userIds.pop()
+            mem = guild.get_member(int(uid))
+            if mem is not None:
+                processedNames.append(mem.display_name)
+            else:
+                namesSkipped += 1
+        leftovers = namesSkipped + len(userIds)
+        if len(processedNames) == 0:
+            return " -- Representing {0} user{1}.".format(leftovers, "s" if leftovers != 1 else "")
+        result = " -- Representing "
+        while len(processedNames) > 0:
+            result += processedNames.pop() + ", "
+        if leftovers != 0:
+            result += "{0} other user{1}.".format(leftovers, "s" if leftovers != 1 else "")
+        else:
+            result = result[:-2] + "."
+        return result
+
+    # ------
     # Individual command handlers
+    # All command functions are expected to have this signature:
+    # def cmd_NAME(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str)
 
     async def cmd_help(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         em = discord.Embed(
@@ -111,7 +113,7 @@ class WtCommands:
             except KeyError:
                 await channel.send(':x: Not a valid zone name.')
                 return
-            resultstr = '```\n' + _tzPrint(zoneinput) + '\n```'
+            resultstr = '```\n' + self._tzPrint(zoneinput) + '\n```'
             await channel.send(resultstr)
 
     async def cmd_set(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
@@ -151,7 +153,7 @@ class WtCommands:
             return
         resultarr = []
         for i in clist:
-            resultarr.append(_tzPrint(i))
+            resultarr.append(self._tzPrint(i))
         resultarr.sort()
         resultstr = '```\n'
         for i in resultarr:
@@ -167,7 +169,7 @@ class WtCommands:
             
         resultData = []
         for key, value in rawlist.items():
-            resultData.append(_tzPrint(key) + '\n' + _userResolve(guild, value))
+            resultData.append(self._tzPrint(key) + '\n' + self._userResolve(guild, value))
         resultData.sort()
         resultFinal = '```\n'
         for i in resultData:
@@ -192,5 +194,5 @@ class WtCommands:
             if spaghetti: await channel.send(':x: You do not have a time zone. Set it with `tz.set`.')
             else: await channel.send(':x: The given user has not set a time zone. Ask to set it with `tz.set`.')
             return
-        resultstr = '```\n' + _tzPrint(res[0]) + '\n```'
+        resultstr = '```\n' + self._tzPrint(res[0]) + '\n```'
         await channel.send(resultstr)
