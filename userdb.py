@@ -1,18 +1,22 @@
 # User database abstractions
 
-import sqlite3
+import psycopg2
 
 class UserDatabase:
-    def __init__(self, dbname):
+    def __init__(self, connstr):
         '''
-        Sets up the SQLite session for the user database.
+        Sets up the PostgreSQL connection to be used by this instance.
         '''
-        self.db = sqlite3.connect(dbname)
+        self.db = psycopg2.connect(connstr)
         cur = self.db.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS users(
-            guild TEXT, user TEXT, zone TEXT, lastactive INTEGER,
-            PRIMARY KEY (guild, user)
-            )''')
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS userdata (
+            guild_id BIGINT,
+            user_id BIGINT,
+            zone TEXT NOT NULL,
+            last_active TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (guild_id, user_id)
+            )""")
         self.db.commit()
         cur.close()
 
@@ -21,10 +25,10 @@ class UserDatabase:
         If a user exists in the database, updates their last activity timestamp.
         '''
         c = self.db.cursor()
-        c.execute('''
-            UPDATE users SET lastactive = strftime('%s', 'now')
-            WHERE guild = '{0}' AND user = '{1}'
-        '''.format(serverid, authorid))
+        c.execute("""
+            UPDATE userdata SET last_active = now()
+            WHERE guild_id = %s AND user_id = %s
+        """, (serverid, authorid))
         self.db.commit()
         c.close()
 
@@ -33,10 +37,10 @@ class UserDatabase:
         Deletes existing user from the database.
         '''
         c = self.db.cursor()
-        c.execute('''
-            DELETE FROM users
-            WHERE guild = '{0}' AND user = '{1}'
-        '''.format(serverid, authorid))
+        c.execute("""
+            DELETE FROM userdata
+            WHERE guild_id = %s AND user_id = %s
+        """, (serverid, authorid))
         self.db.commit()
         c.close()
 
@@ -48,10 +52,12 @@ class UserDatabase:
         '''
         self.delete_user(serverid, authorid)
         c = self.db.cursor()
-        c.execute('''
-            INSERT INTO users VALUES
-            ('{0}', '{1}', '{2}', strftime('%s', 'now'))
-        '''.format(serverid, authorid, zone))
+        c.execute("""
+            INSERT INTO userdata (guild_id, user_id, zone) VALUES
+            (%s, %s, %s)
+            ON CONFLICT (guild_id, user_id)
+            DO UPDATE SET zone = EXCLUDED.zone
+        """, (serverid, authorid, zone))
         self.db.commit()
         c.close()
 
@@ -62,18 +68,18 @@ class UserDatabase:
         '''
         c = self.db.cursor()
         if userid is None:
-            c.execute('''
-            SELECT zone, count(*) as ct FROM users
-            WHERE guild = '{0}'
-            AND lastactive >= strftime('%s','now') - (72 * 60 * 60) -- only users active in the last 72 hrs
+            c.execute("""
+            SELECT zone, count(*) as ct FROM userdata
+            WHERE guild_id = %s
+            AND last_active >= now() - INTERVAL '72 HOURS' -- only users active in the last 72 hrs
             GROUP BY zone -- separate by popularity
             ORDER BY ct DESC LIMIT 10 -- top 10 zones are given
-            '''.format(serverid))
+            """, (serverid))
         else:
-            c.execute('''
-            SELECT zone, '0' as ct FROM users
-            WHERE guild = '{0}' AND user = '{1}'
-            '''.format(serverid, userid))
+            c.execute("""
+            SELECT zone, '0' as ct FROM userdata
+            WHERE guild_id = %s AND user_id = %s
+            """, (serverid, userid))
             
         results = c.fetchall()
         c.close()
@@ -85,23 +91,23 @@ class UserDatabase:
         Returns a dictionary. Keys are zone name, values are arrays with user IDs.
         '''
         c = self.db.cursor()
-        c.execute('''
-        SELECT zone, user
-            FROM users
+        c.execute("""
+        SELECT zone, user_id
+            FROM userdata
         WHERE
-            lastactive >= strftime('%s','now') - (72 * 60 * 60) -- only users active in the last 72 hrs
-            AND guild = '{0}'
+            last_active >= now() - INTERVAL '72 HOURS' -- only users active in the last 72 hrs
+            AND guild_id = %(guild)s
             AND zone in (SELECT zone from (
                 SELECT zone, count(*) as ct
-                FROM users
+                FROM userdata
                 WHERE
-                    guild = '{0}'
-                    AND lastactive >= strftime('%s','now') - (72 * 60 * 60)
+                    guild_id = %(guild)s
+                    AND last_active >= now() - INTERVAL '72 HOURS'
                 GROUP BY zone
                 LIMIT 10
-            ))
+            ) as pop_zones)
             ORDER BY RANDOM() -- Randomize display order (done by consumer)
-        '''.format(serverid))
+        """, {'guild': serverid})
         result = {}
         for row in c:
             inlist = result.get(row[0])
@@ -117,7 +123,7 @@ class UserDatabase:
         Gets the number of unique time zones in the database.
         '''
         c = self.db.cursor()
-        c.execute('SELECT COUNT(DISTINCT zone) FROM users')
+        c.execute('SELECT COUNT(DISTINCT zone) FROM userdata')
         result = c.fetchall()
         c.close()
         return result[0][0]

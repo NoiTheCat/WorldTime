@@ -7,6 +7,6 @@ A common problem since the beginning of the Internet: You find yourself in an on
 This bot aims to answer the age-old question, "What time is it for everyone?" Users specify their time zones. Others users can then ask the bot what time it is for a person in particular, or get an overview of the most common time zones amongst recently active members.
 
 ## Setup
-1. Install the necessary dependencies: `pytz`, `sqlite3`, and `discord.py` (rewrite branch).
-2. Copy `settings_default.py` to `settings.py` and set your bot token.
-3. Run `worldtime.py` using Python 3.
+1. Install the necessary dependencies: `pytz`, `psycopg2`, and `discord.py` (rewrite branch).
+2. Copy `settings_default.py` to `settings.py` and configure as needed.
+3. Run `worldtime.py`.

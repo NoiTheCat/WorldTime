@@ -12,7 +12,7 @@ from commands import WtCommands
 class WorldTime(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.userdb = UserDatabase('users.db')
+        self.userdb = UserDatabase(settings.PgConnectionString)
         self.commands = WtCommands(self.userdb, self)
         self.bg_task = self.loop.create_task(self.periodic_report())
 

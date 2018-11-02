@@ -5,7 +5,7 @@
 # - https://bots.discord.pw/bots/447266583459528715
 
 # Dependencies (install via pip or other means):
-# pytz, sqlite3, discord.py@rewrite
+# pytz, psycopg2, discord.py@rewrite
 # How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py@rewrite
 
 from discord import Game
