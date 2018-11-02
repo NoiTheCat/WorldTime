@@ -50,15 +50,14 @@ class WtCommands:
         list entry, describing the users for which a zone is represented by.
         """
         if len(userIds) == 0:
-            return " -- Representing 0 users. Bug?"
+            return "    → This text should never appear."
         
         # Try given entries. For each entry tried, attempt to get their nickname
         # or username. Failed attempts are anonymized instead of discarded.
-        # Attempt at most three entries.
         namesProcessed = 0
         namesSkipped = 0
         processedNames = []
-        while namesProcessed < 3 and len(userIds) > 0:
+        while namesProcessed < 4 and len(userIds) > 0:
             namesProcessed += 1
             uid = userIds.pop()
             mem = guild.get_member(int(uid))
@@ -68,12 +67,12 @@ class WtCommands:
                 namesSkipped += 1
         leftovers = namesSkipped + len(userIds)
         if len(processedNames) == 0:
-            return " -- Representing {0} user{1}.".format(leftovers, "s" if leftovers != 1 else "")
-        result = " -- Representing "
+            return "    → {0} user{1}.".format(leftovers, "s" if leftovers != 1 else "")
+        result = "    → "
         while len(processedNames) > 0:
             result += processedNames.pop() + ", "
         if leftovers != 0:
-            result += "{0} other user{1}.".format(leftovers, "s" if leftovers != 1 else "")
+            result += "{0} other{1}.".format(leftovers, "s" if leftovers != 1 else "")
         else:
             result = result[:-2] + "."
         return result
