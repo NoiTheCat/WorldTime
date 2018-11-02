@@ -65,4 +65,6 @@ class WorldTime(discord.Client):
                         logPrint("Report", "Reported count to Discord Bots.")
                     except aiohttp.ClientError as e:
                         logPrint("Report", "Discord Bots API report failed: {}".format(e))
+                    except Exception as e:
+                        logPrint("Report", "Unknown error on Discord Bots API report.")
             await asyncio.sleep(21600) # Repeat once every six hours
