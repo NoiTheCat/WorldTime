@@ -106,7 +106,7 @@ class UserDatabase:
                 GROUP BY zone
                 LIMIT 10
             ) as pop_zones)
-            ORDER BY RANDOM() -- Randomize display order (done by consumer)
+            ORDER BY RANDOM() -- Randomize display order (expected by consumer)
         """, {'guild': serverid})
         result = {}
         for row in c:
