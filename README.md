@@ -1,6 +1,7 @@
-# WorldTime
+# World Time
 
-Info and invite link: https://bots.discord.pw/bots/447266583459528715
+* Info: https://discord.bots.gg/bots/447266583459528715
+* Invite: https://discordapp.com/oauth2/authorize?client_id=447266583459528715&scope=bot&permissions=0
 
 A common problem since the beginning of the Internet: You find yourself in an online community with users scattered all over different time zones. You seek people to talk to, but they're idle. You are reminded of the concept of time zones and begin to wonder: what if this is not a good time for them?
 
