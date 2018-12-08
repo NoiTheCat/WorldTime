@@ -57,8 +57,8 @@ class WorldTime(discord.Client):
             logPrint("Report", "Currently in {0} guild(s).".format(guildcount))
             async with aiohttp.ClientSession() as session:
                 if authtoken != '':
-                    rurl = "https://bots.discord.pw/api/bots/{}/stats".format(self.user.id)
-                    rdata = { "server_count": guildcount }
+                    rurl = "https://discord.bots.gg/api/v1/bots/{}/stats".format(self.user.id)
+                    rdata = { "guildCount": guildcount }
                     rhead = { "Content-Type": "application/json", "Authorization": authtoken }
                     try:
                         await session.post(rurl, json=rdata, headers=rhead)
