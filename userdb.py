@@ -71,9 +71,9 @@ class UserDatabase:
             c.execute("""
             SELECT zone, count(*) as ct FROM userdata
             WHERE guild_id = %s
-            AND last_active >= now() - INTERVAL '72 HOURS' -- only users active in the last 72 hrs
+            AND last_active >= now() - INTERVAL '30 DAYS' -- only users active in the last 30 days
             GROUP BY zone -- separate by popularity
-            ORDER BY ct DESC LIMIT 10 -- top 10 zones are given
+            ORDER BY ct DESC LIMIT 20 -- top 20 zones are given
             """, (serverid))
         else:
             c.execute("""
@@ -95,16 +95,16 @@ class UserDatabase:
         SELECT zone, user_id
             FROM userdata
         WHERE
-            last_active >= now() - INTERVAL '72 HOURS' -- only users active in the last 72 hrs
+            last_active >= now() - INTERVAL '30 DAYS' -- only users active in the last 30 days
             AND guild_id = %(guild)s
             AND zone in (SELECT zone from (
                 SELECT zone, count(*) as ct
                 FROM userdata
                 WHERE
                     guild_id = %(guild)s
-                    AND last_active >= now() - INTERVAL '72 HOURS'
+                    AND last_active >= now() - INTERVAL '30 DAYS'
                 GROUP BY zone
-                LIMIT 10
+                LIMIT 20
             ) as pop_zones)
             ORDER BY RANDOM() -- Randomize display order (expected by consumer)
         """, {'guild': serverid})
