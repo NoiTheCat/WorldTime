@@ -5,8 +5,8 @@
 # - https://bots.discord.pw/bots/447266583459528715
 
 # Dependencies (install via pip or other means):
-# pytz, psycopg2, discord.py@rewrite
-# How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py@rewrite
+# pytz, psycopg2, discord.py
+# How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py
 
 from discord import Game
 from client import WorldTime
