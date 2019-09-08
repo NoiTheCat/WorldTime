@@ -91,7 +91,7 @@ class WtCommands:
             color=14742263,
             title='Help & About',
             description=dedent('''
-                "What time is it for everyone here?" - Version `{0}`.
+                World Time, version `{0}`.
                 Serving {1} communities across {2} time zones.
             '''.format(versionstr, len(self.dclient.guilds), tzcount))
         )
@@ -106,7 +106,7 @@ class WtCommands:
             `tz.remove` - Removes your name from this bot.
         '''))
         em.add_field(name='Zones', value=dedent('''
-            This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
+            This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
         '''))
         await channel.send(embed=em)
 
@@ -157,7 +157,7 @@ class WtCommands:
         # To do: improve and merge into noparam2
         clist = self.userdb.get_list(guild.id)
         if len(clist) == 0:
-            await channel.send(':x: No users with known zones have been active in the last 72 hours.')
+            await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
             return
         resultarr = []
         for i in clist:
@@ -172,7 +172,7 @@ class WtCommands:
     async def _list_noparam2(self, guild: discord.Guild, channel: discord.TextChannel):
         rawlist = self.userdb.get_list2(guild.id)
         if len(rawlist) == 0:
-            await channel.send(':x: No users with known zones have been active in the last 72 hours.')
+            await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
             return
             
         resultData = []
@@ -188,19 +188,51 @@ class WtCommands:
     async def _list_userparam(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, param):
         # wishlist: search based on username/nickname
         param = str(param)
-        if param.startswith('<@!') and param.endswith('>'):
-            param = param[3:][:-1]
-        if param.startswith('<@') and param.endswith('>'):
-            param = param[2:][:-1]
-        if not param.isnumeric():
-            # Didn't get an ID...
-            await channel.send(':x: You must specify a user by ID or `@` mention.')
+        usersearch = self._resolve_user(guild, param)
+        if usersearch is None:
+            await channel.send(':x: Cannot find the specified user.')
             return
-        res = self.userdb.get_list(guild.id, param)
+
+        res = self.userdb.get_list(guild.id, usersearch.id)
         if len(res) == 0:
-            spaghetti = author.id == param
-            if spaghetti: await channel.send(':x: You do not have a time zone. Set it with `tz.set`.')
-            else: await channel.send(':x: The given user has not set a time zone. Ask to set it with `tz.set`.')
+            ownsearch = author.id == param
+            if ownsearch: await channel.send(':x: You do not have a time zone. Set it with `tz.set`.')
+            else: await channel.send(':x: The given user does not have a time zone set.')
             return
         resultstr = '```\n' + self._tzPrint(res[0]) + '\n```'
         await channel.send(resultstr)
+
+    def _resolve_user(self, guild: discord.Guild, inputstr: str):
+        """
+        Takes a string input and attempts to find the corresponding user.
+        """
+        idsearch = None
+        try:
+            idsearch = int(inputstr)
+        except ValueError:
+            pass
+        if inputstr.startswith('<@!') and inputstr.endswith('>'):
+            idsearch = inputstr[3:][:-1]
+        if inputstr.startswith('<@') and inputstr.endswith('>'):
+            idsearch = inputstr[2:][:-1]
+        if idsearch is not None:
+            return guild.get_member(idsearch)
+
+        # get_member_named is case-sensitive. we do it ourselves. username only.
+        for member in guild.members:
+            # we'll use the discriminator and do a username lookup if it exists
+            if len(inputstr) > 5 and inputstr[-5] == '#':
+                discstr = inputstr[-4:]
+                userstr = inputstr[:-5]
+                if discstr.isdigit():
+                    if member.discriminator == discstr and userstr.lower() == member.name.lower():
+                        return member
+            #nickname search
+            if member.nick is not None:
+                if member.nick.lower() == inputstr.lower():
+                    return member
+            #username search
+            if member.name.lower() == inputstr.lower():
+                return member
+
+        return None
