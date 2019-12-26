@@ -18,6 +18,7 @@ class WorldTime(discord.Client):
 
     async def on_ready(self):
         logPrint('Status', 'Connected as {0} ({1})'.format(self.user.name, self.user.id))
+        await self.change_presence(activity=discord.Game("tz.help"))
     
     async def on_message(self, message):
         # ignore bots (should therefore also ignore self)
@@ -37,14 +38,13 @@ class WorldTime(discord.Client):
     async def respond_dm(self, message):
         logPrint('Incoming DM', '{0}: {1}'.format(message.author, message.content.replace('\n', '\\n')))
         await message.channel.send('''I don't work over DM. :frowning: Only in a server.''')
-        # to do: small cache to not flood users who can't take a hint
 
     # ----------------
 
     async def periodic_report(self):
         '''
         Provides a periodic update in console of how many guilds we're on.
-        Reports guild count to Discord Bots. Please don't make use of this unless you're the original author.
+        Reports guild count to Discord Bots if the appropriate token has been defined.
         '''
         try:
             authtoken = settings.DBotsApiKey
@@ -54,7 +54,6 @@ class WorldTime(discord.Client):
         await self.wait_until_ready()
         while not self.is_closed():
             guildcount = len(self.guilds)
-            logPrint("Report", "Currently in {0} guild(s).".format(guildcount))
             async with aiohttp.ClientSession() as session:
                 if authtoken != '':
                     rurl = "https://discord.bots.gg/api/v1/bots/{}/stats".format(self.user.id)
@@ -67,4 +66,5 @@ class WorldTime(discord.Client):
                         logPrint("Report", "Discord Bots API report failed: {}".format(e))
                     except Exception as e:
                         logPrint("Report", "Unknown error on Discord Bots API report.")
+            logPrint("Report", "Currently in {0} guild(s).".format(guildcount))
             await asyncio.sleep(21600) # Repeat once every six hours

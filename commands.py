@@ -174,7 +174,9 @@ class WtCommands:
         if len(rawlist) == 0:
             await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
             return
-            
+        if guild.large:
+            # Get full user data here if not available (used by _userResolve)
+            await self.dclient.request_offline_members(guild)
         resultData = []
         for key, value in rawlist.items():
             resultData.append(self._tzPrint(key) + '\n' + self._userResolve(guild, value))
