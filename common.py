@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 
 # Bot's current version (as a string), for use in the help command
-BotVersion = "1.1.2"
+BotVersion = "1.2.0"
 
 # For case-insensitive time zone lookup, map lowercase tzdata entries with
 # entires with proper case. pytz is case sensitive.

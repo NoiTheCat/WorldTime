@@ -117,7 +117,7 @@ class WtCommands:
             color=14742263,
             title='Help & About',
             description=dedent('''
-                World Time v`{0}`
+                World Time v{0}
                 Serving {1} communities across {2} time zones.
             '''.format(BotVersion, len(self.dclient.guilds), tzcount))
         )
@@ -131,6 +131,10 @@ class WtCommands:
             `tz.set [zone]` - Registers or updates your *zone* with the bot.
             `tz.remove` - Removes your name from this bot.
         '''))
+        em.add_field(name='Admin commands', value=dedent('''
+            `tz.setFor [user] [zone]` - Sets the time zone for another user.
+            `tz.removeFor [user]` - Removes another user's information.
+        '''), inline=False)
         em.add_field(name='Zones', value=dedent('''
             This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
         '''), inline=False)
