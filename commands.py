@@ -6,7 +6,7 @@ from textwrap import dedent
 import discord
 import pytz
 from datetime import datetime
-import subprocess
+import re
 
 from userdb import UserDatabase
 from common import tzlcmap, logPrint
@@ -20,7 +20,9 @@ class WtCommands:
             'list' : self.cmd_list,
             'time' : self.cmd_time,
             'set'  : self.cmd_set,
-            'remove': self.cmd_remove
+            'remove': self.cmd_remove,
+            'setfor': self.cmd_setFor,
+            'removefor': self.cmd_removeFor
         }
     
     async def dispatch(self, cmdBase: str, message: discord.Message):
@@ -77,6 +79,31 @@ class WtCommands:
             result = result[:-2] + "."
         return result
 
+    def _isUserAdmin(self, member: discord.Member):
+        """
+        Checks if the given user can be considered a guild admin ('Manage Server' is set).
+        """
+        # Can fit in a BirthdayBot-like bot moderator role in here later, if desired.
+        p = member.guild_permissions
+        return p.administrator or p.manage_guild
+
+    def _resolveUserParam(self, guild: discord.Guild, input: str):
+        """
+        Given user input, attempts to find the corresponding Member.
+        Currently only accepts pings and explicit user IDs.
+        """
+        UserMention = re.compile(r"<@\!?(\d+)>")
+        match = UserMention.match(input)
+        if match is not None:
+            idcheck = match.group(1)
+        else:
+            idcheck = input
+        try:
+            idcheck = int(idcheck)
+        except ValueError:
+            return None
+        return guild.get_member(idcheck)
+
     # ------
     # Individual command handlers
     # All command functions are expected to have this signature:
@@ -106,7 +133,7 @@ class WtCommands:
         '''))
         em.add_field(name='Zones', value=dedent('''
             This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
-        '''))
+        '''), inline=False)
         await channel.send(embed=em)
 
     async def cmd_time(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
@@ -137,6 +164,38 @@ class WtCommands:
         self.userdb.update_user(guild.id, author.id, zoneinput)
         await channel.send(':white_check_mark: Your zone has been set.')
 
+    async def cmd_setFor(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
+        if not self._isUserAdmin(author):
+            # Silently ignore
+            return
+
+        # parameters: command, target, zone
+        wspl = msgcontent.split(' ', 2)
+        
+        if len(wspl) == 1:
+            await channel.send(":x: You must specify a user to set the time zone for.")
+            return
+        if len(wspl) == 2:
+            await channel.send(":x: You must specify a time zone to apply to the user.")
+            return
+        
+        # Determine user from second parameter
+        targetuser = self._resolveUserParam(guild, wspl[1])
+        if targetuser is None:
+            await channel.send(":x: Unable to find the target user.")
+            return
+        
+        # Check the third parameter
+        try:
+            zoneinput = tzlcmap[wspl[2].lower()]
+        except KeyError:
+            await channel.send(':x: Not a valid zone name.')
+            return
+
+        # Do the thing
+        self.userdb.update_user(guild.id, targetuser.id, zoneinput)
+        await channel.send(':white_check_mark: Set zone for **' + targetuser.name + '#' + targetuser.discriminator + '**.')
+
     async def cmd_list(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         wspl = msgcontent.split(' ', 1)
         if len(wspl) == 1:
@@ -148,6 +207,25 @@ class WtCommands:
         # To do: Check if there even is data to remove; react accordingly
         self.userdb.delete_user(guild.id, author.id)
         await channel.send(':white_check_mark: Your zone has been removed.')
+
+    async def cmd_removeFor(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
+        if not self._isUserAdmin(author):
+            # Silently ignore
+            return
+
+        # Parameters: command, target
+        wspl = msgcontent.split(' ', 1)
+        
+        if len(wspl) == 1:
+            await channel.send(":x: You must specify a user for whom to remove time zone data.")
+            return
+        targetuser = self._resolveUserParam(guild, wspl[1])
+        if targetuser is None:
+            await channel.send(":x: Unable to find the target user.")
+            return
+        
+        self.userdb.delete_user(guild.id, targetuser.id)
+        await channel.send(':white_check_mark: Removed zone information for **' + targetuser.name + '#' + targetuser.discriminator + '**.')
 
     # ------
     # Supplemental command functions
