@@ -1,7 +1,7 @@
 # Command handlers
+# Incoming commands are fully handled by functions defined here.
 
-# Incoming messages that look like commands are passed into functions defined here.
-
+from common import BotVersion
 from textwrap import dedent
 import discord
 import pytz
@@ -84,16 +84,15 @@ class WtCommands:
 
     async def cmd_help(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         # Be a little fancy.
-        versionstr = subprocess.check_output(["git", "describe", "--always"]).strip()
         tzcount = self.userdb.get_unique_tz_count()
 
         em = discord.Embed(
             color=14742263,
             title='Help & About',
             description=dedent('''
-                World Time, version `{0}`.
+                World Time v`{0}`
                 Serving {1} communities across {2} time zones.
-            '''.format(versionstr, len(self.dclient.guilds), tzcount))
+            '''.format(BotVersion, len(self.dclient.guilds), tzcount))
         )
         em.set_footer(text='World Time', icon_url=self.dclient.user.avatar_url)
         em.add_field(name='Commands', value=dedent('''
