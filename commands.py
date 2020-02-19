@@ -30,7 +30,7 @@ class WtCommands:
             command = self.commandlist[cmdBase]
         except KeyError:
             return
-        logPrint('Command invoked', '{0}/{1}: tz.{2}'.format(message.guild, message.author, cmdBase))
+        logPrint('Command invoked', '{0}/{1}: {2}'.format(message.guild, message.author, message.content))
         await command(message.guild, message.channel, message.author, message.content)
 
     # ------
