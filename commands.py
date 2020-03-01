@@ -18,7 +18,6 @@ class WtCommands:
         self.commandlist = {
             'help' : self.cmd_help,
             'list' : self.cmd_list,
-            'time' : self.cmd_time,
             'set'  : self.cmd_set,
             'remove': self.cmd_remove,
             'setfor': self.cmd_setFor,
@@ -126,8 +125,6 @@ class WtCommands:
             `tz.help` - This message.
             `tz.list` - Displays current times for all recently active known users.
             `tz.list [user]` - Displays the current time for the given *user*.
-            `tz.time` - Displays the current time in your time zone.
-            `tz.time [zone]` - Displays the current time in the given *zone*.
             `tz.set [zone]` - Registers or updates your *zone* with the bot.
             `tz.remove` - Removes your name from this bot.
         '''))
@@ -139,20 +136,6 @@ class WtCommands:
             This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
         '''), inline=False)
         await channel.send(embed=em)
-
-    async def cmd_time(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
-        wspl = msgcontent.split(' ', 1)
-        if len(wspl) == 1:
-            # No parameter. So, doing the same thing anyway...
-            await self._list_userparam(guild, channel, author, author.id)
-        else:
-            try:
-                zoneinput = tzlcmap[wspl[1].lower()]
-            except KeyError:
-                await channel.send(':x: Not a valid zone name.')
-                return
-            resultstr = '```\n' + self._tzPrint(zoneinput) + '\n```'
-            await channel.send(resultstr)
 
     async def cmd_set(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         wspl = msgcontent.split(' ', 1)
