@@ -279,9 +279,10 @@ class WtCommands:
         except ValueError:
             pass
         if inputstr.startswith('<@!') and inputstr.endswith('>'):
-            idsearch = inputstr[3:][:-1]
-        if inputstr.startswith('<@') and inputstr.endswith('>'):
-            idsearch = inputstr[2:][:-1]
+            idsearch = int(inputstr[3:][:-1])
+        elif inputstr.startswith('<@') and inputstr.endswith('>'):
+            idsearch = int(inputstr[2:][:-1])
+            
         if idsearch is not None:
             return guild.get_member(idsearch)
 
