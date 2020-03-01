@@ -38,12 +38,10 @@ class WtCommands:
     def _tzPrint(self, zone : str):
         """
         Returns a string displaying the current time in the given time zone.
-        Resulting string should be placed in a code block.
+        String begins with four numbers for sorting purposes and must be trimmed before output.
         """
-        padding = ''
         now_time = datetime.now(pytz.timezone(zone))
-        if len(now_time.strftime("%Z")) != 4: padding = ' '
-        return "{:s}{:s} | {:s}".format(now_time.strftime("%H:%M %d-%b %Z%z"), padding, zone)
+        return "{:s}● {:s}".format(now_time.strftime("%m%d"), now_time.strftime("%d-%b %H:%M %Z (UTC%z)"))
 
     def _userResolve(self, guild: discord.Guild, userIds: list):
         """
@@ -76,6 +74,26 @@ class WtCommands:
             result += "{0} other{1}.".format(leftovers, "s" if leftovers != 1 else "")
         else:
             result = result[:-2] + "."
+        return result
+    
+    def _userFormat(self, member: discord.Member):
+        """
+        Given a member, returns a formatted string showing their username and nickname
+        prepared for result output.
+        """
+        username = self._userFormatEscapeFormattingCharacters(member.name)
+        if member.nick is not None:
+            nickname = self._userFormatEscapeFormattingCharacters(member.nick)
+            return "**{}** ({}#{})".format(nickname, username, member.discriminator)
+        else:
+            return "**{}#{}**".format(username, member.discriminator)
+
+    def _userFormatEscapeFormattingCharacters(self, input: str):
+        result = ''
+        for char in input:
+            if char == '\\' or char == '_' or char == '~' or char == '*':
+                result += '\\'
+            result += char
         return result
 
     def _isUserAdmin(self, member: discord.Member):
@@ -186,7 +204,7 @@ class WtCommands:
     async def cmd_list(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         wspl = msgcontent.split(' ', 1)
         if len(wspl) == 1:
-            await self._list_noparam2(guild, channel)
+            await self._list_noparam(guild, channel)
         else:
             await self._list_userparam(guild, channel, author, wspl[1])
 
@@ -218,22 +236,6 @@ class WtCommands:
     # Supplemental command functions
 
     async def _list_noparam(self, guild: discord.Guild, channel: discord.TextChannel):
-        # To do: improve and merge into noparam2
-        clist = self.userdb.get_list(guild.id)
-        if len(clist) == 0:
-            await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
-            return
-        resultarr = []
-        for i in clist:
-            resultarr.append(self._tzPrint(i))
-        resultarr.sort()
-        resultstr = '```\n'
-        for i in resultarr:
-            resultstr += i + '\n'
-        resultstr += '```'
-        await channel.send(resultstr)
-
-    async def _list_noparam2(self, guild: discord.Guild, channel: discord.TextChannel):
         rawlist = self.userdb.get_list2(guild.id)
         if len(rawlist) == 0:
             await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
@@ -252,25 +254,24 @@ class WtCommands:
         await channel.send(resultFinal)
 
     async def _list_userparam(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, param):
-        # wishlist: search based on username/nickname
         param = str(param)
-        usersearch = self._resolve_user(guild, param)
+        usersearch = self._resolve_member(guild, param)
         if usersearch is None:
             await channel.send(':x: Cannot find the specified user.')
             return
 
-        res = self.userdb.get_list(guild.id, usersearch.id)
-        if len(res) == 0:
+        res = self.userdb.get_user(guild.id, usersearch.id)
+        if res is None:
             ownsearch = author.id == param
             if ownsearch: await channel.send(':x: You do not have a time zone. Set it with `tz.set`.')
             else: await channel.send(':x: The given user does not have a time zone set.')
             return
-        resultstr = '```\n' + self._tzPrint(res[0]) + '\n```'
-        await channel.send(resultstr)
+        em = discord.Embed(description=self._tzPrint(res)[4:] + ": " + self._userFormat(usersearch))
+        await channel.send(embed=em)
 
-    def _resolve_user(self, guild: discord.Guild, inputstr: str):
+    def _resolve_member(self, guild: discord.Guild, inputstr: str):
         """
-        Takes a string input and attempts to find the corresponding user.
+        Takes a string input and attempts to find the corresponding member.
         """
         idsearch = None
         try:

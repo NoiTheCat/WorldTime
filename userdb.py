@@ -61,6 +61,21 @@ class UserDatabase:
         self.db.commit()
         c.close()
 
+    def get_user(self, serverid, usreid):
+        '''
+        Retrieves the time zone name of a single user
+        '''
+        c = self.db.cursor()
+        c.execute("""
+        SELECT zone FROM userdata
+        WHERE guild_id = %s
+        """, (serverid,))
+        result = c.fetchone()
+        c.close()
+        if result is None: return None
+        return result[0]
+        
+
     def get_list(self, serverid, userid=None):
         '''
         Retrieves a list of recent time zones based on
