@@ -1,12 +1,13 @@
 # Command handlers
 # Incoming commands are fully handled by functions defined here.
 
-from common import BotVersion
+from common import BotVersion, tzPrint
 from textwrap import dedent
 import discord
 import pytz
 from datetime import datetime
 import re
+import collections
 
 from userdb import UserDatabase
 from common import tzlcmap, logPrint
@@ -34,47 +35,6 @@ class WtCommands:
 
     # ------
     # Helper methods
-
-    def _tzPrint(self, zone : str):
-        """
-        Returns a string displaying the current time in the given time zone.
-        String begins with four numbers for sorting purposes and must be trimmed before output.
-        """
-        now_time = datetime.now(pytz.timezone(zone))
-        return "{:s}● {:s}".format(now_time.strftime("%m%d"), now_time.strftime("%d-%b %H:%M %Z (UTC%z)"))
-
-    def _userResolve(self, guild: discord.Guild, userIds: list):
-        """
-        Given a list with user IDs, returns a string, the second half of a
-        list entry, describing the users for which a zone is represented by.
-        """
-        if len(userIds) == 0:
-            return "    → This text should never appear."
-        
-        # Try given entries. For each entry tried, attempt to get their nickname
-        # or username. Failed attempts are anonymized instead of discarded.
-        namesProcessed = 0
-        namesSkipped = 0
-        processedNames = []
-        while namesProcessed < 4 and len(userIds) > 0:
-            namesProcessed += 1
-            uid = userIds.pop()
-            mem = guild.get_member(int(uid))
-            if mem is not None:
-                processedNames.append(mem.display_name)
-            else:
-                namesSkipped += 1
-        leftovers = namesSkipped + len(userIds)
-        if len(processedNames) == 0:
-            return "    → {0} user{1}.".format(leftovers, "s" if leftovers != 1 else "")
-        result = "    → "
-        while len(processedNames) > 0:
-            result += processedNames.pop() + ", "
-        if leftovers != 0:
-            result += "{0} other{1}.".format(leftovers, "s" if leftovers != 1 else "")
-        else:
-            result = result[:-2] + "."
-        return result
     
     def _userFormat(self, member: discord.Member):
         """
@@ -236,26 +196,33 @@ class WtCommands:
     # Supplemental command functions
 
     async def _list_noparam(self, guild: discord.Guild, channel: discord.TextChannel):
-        rawlist = self.userdb.get_list2(guild.id)
-        if len(rawlist) == 0:
+        userlist = self.userdb.get_users(guild.id)
+        if len(userlist) == 0:
             await channel.send(':x: No users with registered time zones have been active in the last 30 days.')
             return
-        if guild.large:
-            # Get full user data here if not available (used by _userResolve)
-            await self.dclient.request_offline_members(guild)
-        resultData = []
-        for key, value in rawlist.items():
-            resultData.append(self._tzPrint(key) + '\n' + self._userResolve(guild, value))
-        resultData.sort()
-        resultFinal = '```\n'
-        for i in resultData:
-            resultFinal += i + '\n'
-        resultFinal += '```'
-        await channel.send(resultFinal)
+        
+        orderedList = collections.OrderedDict(sorted(userlist.items()))
+        result = ''
+
+        for k, v in orderedList.items():
+            foundUsers = 0
+            line = k[4:] + ": "
+            for id in v:
+                member = await self._resolve_member(guild, id)
+                if member is None:
+                    continue
+                if foundUsers > 10:
+                    line += "and others...  "
+                foundUsers += 1
+                line += self._userFormat(member) + ", "
+            if foundUsers > 0: result += line[:-2] + "\n"
+        
+        em = discord.Embed(description=result.strip())
+        await channel.send(embed=em)
 
     async def _list_userparam(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, param):
         param = str(param)
-        usersearch = self._resolve_member(guild, param)
+        usersearch = await self._resolve_member(guild, param)
         if usersearch is None:
             await channel.send(':x: Cannot find the specified user.')
             return
@@ -266,23 +233,23 @@ class WtCommands:
             if ownsearch: await channel.send(':x: You do not have a time zone. Set it with `tz.set`.')
             else: await channel.send(':x: The given user does not have a time zone set.')
             return
-        em = discord.Embed(description=self._tzPrint(res)[4:] + ": " + self._userFormat(usersearch))
+        em = discord.Embed(description=tzPrint(res)[4:] + ": " + self._userFormat(usersearch))
         await channel.send(embed=em)
 
-    def _resolve_member(self, guild: discord.Guild, inputstr: str):
+    async def _resolve_member(self, guild: discord.Guild, inputstr: str):
         """
         Takes a string input and attempts to find the corresponding member.
         """
+        await self.dclient.request_offline_members(guild)
         idsearch = None
         try:
             idsearch = int(inputstr)
         except ValueError:
-            pass
-        if inputstr.startswith('<@!') and inputstr.endswith('>'):
-            idsearch = int(inputstr[3:][:-1])
-        elif inputstr.startswith('<@') and inputstr.endswith('>'):
-            idsearch = int(inputstr[2:][:-1])
-            
+            if inputstr.startswith('<@!') and inputstr.endswith('>'):
+                idsearch = int(inputstr[3:][:-1])
+            elif inputstr.startswith('<@') and inputstr.endswith('>'):
+                idsearch = int(inputstr[2:][:-1])
+
         if idsearch is not None:
             return guild.get_member(idsearch)
 

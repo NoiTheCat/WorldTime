@@ -1,6 +1,7 @@
 # User database abstractions
 
 import psycopg2
+from common import tzPrint
 
 class UserDatabase:
     def __init__(self, connstr):
@@ -63,7 +64,7 @@ class UserDatabase:
 
     def get_user(self, serverid, userid):
         '''
-        Retrieves the time zone name of a single user
+        Retrieves the time zone name of a single user.
         '''
         c = self.db.cursor()
         c.execute("""
@@ -75,36 +76,12 @@ class UserDatabase:
         if result is None: return None
         return result[0]
 
-        
-    def get_list(self, serverid, userid=None):
-        '''
-        Retrieves a list of recent time zones based on
-        recent activity per user. For use in the list command.
-        '''
-        c = self.db.cursor()
-        if userid is None:
-            c.execute("""
-            SELECT zone, count(*) as ct FROM userdata
-            WHERE guild_id = %s
-            AND last_active >= now() - INTERVAL '30 DAYS' -- only users active in the last 30 days
-            GROUP BY zone -- separate by popularity
-            ORDER BY ct DESC LIMIT 20 -- top 20 zones are given
-            """, (serverid))
-        else:
-            c.execute("""
-            SELECT zone, '0' as ct FROM userdata
-            WHERE guild_id = %s AND user_id = %s
-            """, (serverid, userid))
-            
-        results = c.fetchall()
-        c.close()
-        return [i[0] for i in results]
-
-    def get_list2(self, serverid):
-        '''
-        Retrieves data for the tz.list command.
-        Returns a dictionary. Keys are zone name, values are arrays with user IDs.
-        '''
+    def get_users(self, serverid):
+        """
+        Retrieves all user time zones for all recently active members.
+        Users not present are not filtered here. Must be handled by the caller.
+        Returns a dictionary of lists - Key is formatted zone, value is list of users represented.
+        """
         c = self.db.cursor()
         c.execute("""
         SELECT zone, user_id
@@ -125,11 +102,9 @@ class UserDatabase:
         """, {'guild': serverid})
         result = {}
         for row in c:
-            inlist = result.get(row[0])
-            if inlist is None:
-                result[row[0]] = []
-                inlist = result[row[0]]
-            inlist.append(row[1])
+            resultrow = tzPrint(row[0])
+            result[resultrow] = result.get(resultrow, list())
+            result[resultrow].append(row[1])
         c.close()
         return result
 
