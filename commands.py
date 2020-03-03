@@ -240,7 +240,7 @@ class WtCommands:
         """
         Takes a string input and attempts to find the corresponding member.
         """
-        await self.dclient.request_offline_members(guild)
+        if guild.large: await self.dclient.request_offline_members(guild)
         idsearch = None
         try:
             idsearch = int(inputstr)
