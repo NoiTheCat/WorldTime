@@ -9,7 +9,7 @@ import settings
 from userdb import UserDatabase
 from commands import WtCommands
 
-class WorldTime(discord.Client):
+class WorldTime(discord.AutoShardedClient):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.userdb = UserDatabase(settings.PgConnectionString)
@@ -37,7 +37,7 @@ class WorldTime(discord.Client):
 
     async def respond_dm(self, message):
         logPrint('Incoming DM', '{0}: {1}'.format(message.author, message.content.replace('\n', '\\n')))
-        await message.channel.send('''I don't work over DM. :frowning: Only in a server.''')
+        await message.channel.send('''I don't work over DM. Refer to the `tz.help` command when in a server.''')
 
     # ----------------
 
