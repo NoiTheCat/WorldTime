@@ -1,23 +1,20 @@
 # Common items used throughout the project
 
-import pytz
 from datetime import datetime
-
-# Bot's current version (as a string), for use in the help command
-BotVersion = "1.3.0"
+import pytz
 
 # For case-insensitive time zone lookup, map lowercase tzdata entries with
 # entires with proper case. pytz is case sensitive.
-tzlcmap = {x.lower():x for x in pytz.common_timezones}
+TIMEZONE_MAPPING = {x.lower(): x for x in pytz.common_timezones}
 
-def logPrint(label, line):
+def log_print(label, line):
     """
     Print with timestamp in a way that resembles some of my other projects
     """
-    resultstr = datetime.utcnow().strftime('%Y-%m-%d %H:%m:%S') + ' [' + label + '] ' + line
-    print(resultstr)
+    result = f"{datetime.utcnow().strftime('%Y-%m-%d %H:%m:%S')} [ {label} ] {line}"
+    print(result)
 
-def tzPrint(zone : str):
+def tz_format(zone: str):
     """
     Returns a string displaying the current time in the given time zone.
     String begins with four numbers for sorting purposes and must be trimmed before output.

@@ -1,8 +1,11 @@
 # WorldTime instance settings
 
 # Bot token. Required to run.
-BotToken = ''
+bot_token = ''
 
 # PostgreSQL connection string.
 # More information: https://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING
-PgConnectionString = ''
+pg_uri = ''
+
+# Bot's current version (as a string), for use in the help command
+bot_version = "1.3.0"
