@@ -1,3 +1,5 @@
+import typing
+
 import asyncpg
 
 from common import tz_format
@@ -53,7 +55,7 @@ class DatabaseUtil:
 
         return result.get('zone')  # juuust in case
 
-    async def get_users(self, guild_id):
+    async def get_users(self, guild_id) -> typing.Optional[dict]:
         """Retrieves all user time zones for all recently active members,
         or None if none are found.
         Users not present are not filtered here. Must be handled by the caller.
@@ -90,9 +92,9 @@ class DatabaseUtil:
             final[formatted] = final.get(formatted, [])
             final[formatted].append(row['user_id'])
 
-        return result
+        return final
 
-    async def get_unique_tz_count(self):
+    async def get_unique_tz_count(self) -> int:
         """Gets the number of unique time zones in the database."""
 
         results = await self.pool.fetch('SELECT COUNT(DISTINCT zone) FROM userdata')

@@ -8,6 +8,23 @@ A social time zone reference tool! Displays the current time for all your active
 For more information, see the `DiscordBots.md` file.
 
 ## Setup
-1. Install the necessary dependencies: `pytz`, `psycopg2`, `discord.py`
-2. Copy `settings_default.py` to `settings.py` and configure as needed.
-3. Run `worldtime.py`.
+1. Install the necessary dependencies: `pytz`, `discord.py`, `asyncpg`
+2. Install PostgreSQL on your system, and then run the following schema to create the userdata table:
+```sql
+CREATE TABLE IF NOT EXISTS userdata (
+guild_id BIGINT,
+user_id BIGINT,
+zone TEXT NOT NULL,
+last_active TIMESTAMPTZ NOT NULL DEFAULT now(),
+PRIMARY KEY (guild_id, user_id)
+)
+```
+3. Replace the respective values from `config_example.py` to a file named `config.py`.
+4. Run `run.py`.
+
+## Links
+- [Repository](https://github.com/NoiTheCat/WorldTime)
+- [Discord Bots](https://bots.discord.pw/bots/447266583459528715)
+
+
+

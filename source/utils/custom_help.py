@@ -12,15 +12,15 @@ class CustomHelpCommand(commands.HelpCommand):
         super().__init__(command_attrs={
             'help': 'Shows help for a specific command or for the whole bot.'})
 
-    def show_full_help(self):
+    def show_full_help(self) -> discord.Embed:
         """A function that returns an embed containing full help for the bot."""
 
-        tzcount = self.userdb.get_unique_tz_count()
+        tzcount = await self.context.bot.userdb.get_unique_tz_count()
 
         embed = discord.Embed(
             color=14742263,
             title='Help & About',
-            description=dedent('''
+            description=textwrap.dedent('''
                 World Time v{0}
                 Serving {1} communities across {2} time zones.
             '''.format(BotVersion, len(self.context.bot.guilds), tzcount))
@@ -51,13 +51,13 @@ class CustomHelpCommand(commands.HelpCommand):
         embed = self.show_full_help()
         await self.context.send(embed=embed)
 
-    async def show_help_for(self, command):
+    async def show_help_for(self, command) -> discord.Embed:
         """Shows help for either a command or group."""
 
         embed = discord.Embed(
             color=14742263,
             title=f'{command.qualified_name} {command.usage or ""}',
-            description=command.short_doc
+            description=command.help or 'No help given'
             )
 
         if isinstance(command, commands.Group) and len(command.commands) > 0:

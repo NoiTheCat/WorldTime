@@ -2,9 +2,6 @@
 # Incoming commands are fully handled by functions defined here.
 
 from datetime import datetime
-import re
-import collections
-from textwrap import dedent
 import typing
 
 import discord
@@ -27,7 +24,7 @@ class WtCommands(commands.Cog):
     def cog_unload(self):
         self.bot.help_command = CustomHelpCommand()
 
-    def format_user(self, member: discord.Member):
+    def format_user(self, member: discord.Member) -> str:
         """Given a member, returns a formatted string showing their username and nickname
         prepared for result output."""
 
@@ -39,7 +36,7 @@ class WtCommands(commands.Cog):
         nickname = discord.utils.escape_markdown(member.nick)
         return f'**{nickname}** ({full_name})'
 
-    def format_users(self, users: typing.List[discord.Member]):
+    def format_users(self, users: typing.List[discord.Member]) -> str:
         """Given a list of members, pretty-formats each one and returns the list joined by `, `.
         If the list of users is longer than 10, it is sliced to that length and the list is
         appended with `and more...`"""
@@ -154,3 +151,6 @@ class WtCommands(commands.Cog):
             description=f'{tz_format(result)[4:]}: {self.format_user(user)}')
 
         await channel.send(embed=embed)
+
+def setup(bot):
+    bot.add_cog(WtCommands(bot))

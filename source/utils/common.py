@@ -14,7 +14,7 @@ def log_print(label, line):
     result = f"{datetime.utcnow().strftime('%Y-%m-%d %H:%m:%S')} [ {label} ] {line}"
     print(result)
 
-def tz_format(zone: str):
+def tz_format(zone: str) -> str:
     """
     Returns a string displaying the current time in the given time zone.
     String begins with four numbers for sorting purposes and must be trimmed before output.
