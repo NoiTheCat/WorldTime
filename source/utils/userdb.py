@@ -2,7 +2,7 @@ import typing
 
 import asyncpg
 
-from common import tz_format
+from source.utils.common import tz_format
 
 class DatabaseUtil:
     """A simple database utility class for making interactions with our
