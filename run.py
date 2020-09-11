@@ -3,6 +3,7 @@
 import asyncpg
 
 from bot import WorldTime
+import config
 from source.utils import common
 from source.utils.userdb import DatabaseUtil
 
