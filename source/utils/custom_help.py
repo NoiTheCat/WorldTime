@@ -28,10 +28,10 @@ class CustomHelpCommand(commands.HelpCommand):
             '''.format(config.bot_version, len(self.context.bot.guilds), tzcount))
         )
 
-        raw_commands = sorted(self.context.bot.commands, key=lambda cmd: cmd.name)
+        raw_commands = await self.filter_commands(self.context.bot.commands, sort=True)
 
-        values = [f"`{cmd.qualified_name} {cmd.usage or ''}` - {cmd.short_doc}"
-                  for cmd in raw_commands[:5]]
+        values = (f"`{cmd.qualified_name} {cmd.signature}` - {cmd.short_doc}"
+                  for cmd in raw_commands[:5])
 
         embed.add_field(name='Commands', value='\n'.join(values))
 
@@ -54,13 +54,13 @@ class CustomHelpCommand(commands.HelpCommand):
         await self.context.send(embed=embed)
 
     async def show_help_for(self, command) -> discord.Embed:
-        """Shows help for either a command or group."""
+        """A function that returns an embed containing help for either
+        a command or group."""
 
         embed = discord.Embed(
             color=14742263,
-            title=f'{command.qualified_name} {command.usage or ""}',
-            description=command.help or 'No help given'
-            )
+            title=f'{command.qualified_name} {command.signature}',
+            description=command.help or 'No help given')
 
         if isinstance(command, commands.Group) and len(command.commands) > 0:
             embed.add_field(

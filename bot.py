@@ -59,21 +59,32 @@ class WorldTime(commands.AutoShardedBot):
 
         error = getattr(error, 'original', error)
 
-        if isinstance(error, commands.CommandOnCooldown):
+        if isinstance(error, commands.BadArgument):
+            return await ctx.send(error)
+
+        elif isinstance(error, commands.CommandNotFound):
+            return  # prevent clutter
+
+        elif isinstance(error, commands.CommandOnCooldown):
             return await ctx.send(
                 f'That command is on cooldown for you, try again in {round(error.retry_after)}s.')
 
         elif isinstance(error, commands.MissingPermissions):
             joined_perms = ', '.join(
                 f"`{perm.replace('_', ' ').replace('guild', 'server').title()}`"
-                for perm in error.missing_perms
-                )
+                for perm in error.missing_perms)
 
             return await ctx.send(
-                f'You are missing the {joined_perms} permission(s) to run that command.'
-            )
+                f'You are missing the {joined_perms} permission(s) to run that command.')
 
-        await ctx.send(f'{type(error)}: {str(error)}')  # not handled
+        elif isinstance(error, commands.MissingRequiredArgument):
+            return await ctx.send(
+                f'You are missing the {error.param.name} argument for that command.')
+
+        elif isinstance(error, commands.NotOwner):
+            return await ctx.send("That's an owner only command.")
+
+        await ctx.send(f'{error.__class__.__name__}: {str(error)}')  # not handled
 
         common.log_print('Unhandled exception', ctx.command.qualified_name, file=sys.stderr)
         traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
@@ -106,10 +117,12 @@ class WorldTime(commands.AutoShardedBot):
         await self.process_commands(message)  # This is necessary.
 
     async def close(self):
-        """Overridden close to cancel our periodic report task. and close the database
-        connection."""
+        """Overridden close to cancel our periodic report task, close the database connection
+        and our aiohttp ClientSession."""
 
         await self.db.close()
+        await self.session.close()
+
         self.periodic_report.cancel()
 
         return await super().close()
@@ -131,7 +144,8 @@ class WorldTime(commands.AutoShardedBot):
             return
 
         json = {
-            "guildCount": guilds}
+            "guildCount": guilds
+            }
 
         headers = {
             "Content-Type": "application/json",

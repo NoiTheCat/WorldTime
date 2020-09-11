@@ -1,5 +1,9 @@
 from datetime import datetime
 import typing
+import traceback
+import textwrap
+import io
+from contextlib import redirect_stdout
 
 import discord
 from discord.ext import commands
@@ -16,10 +20,18 @@ class WtCommands(commands.Cog):
         bot.help_command = CustomHelpCommand()
         bot.help_command.cog = self
 
+        self._last_result = None
         self.userdb = bot.userdb
 
     def cog_unload(self):
         self.bot.help_command = CustomHelpCommand()
+
+    def cleanup_code(self, content):
+        """Turns a codeblock into code that the bot can compile and execute."""
+
+        if content.startswith('```') and content.endswith('```'):
+            return '\n'.join(content.split('\n')[1:-1])
+        return content.strip('` \n')
 
     def format_user(self, member: discord.Member) -> str:
         """Given a member, returns a formatted string showing their username and nickname
@@ -46,59 +58,6 @@ class WtCommands(commands.Cog):
             modified = [*map(self.format_user, users)]
 
         return ', '.join(modified)
-
-    @commands.group(invoke_without_command=True, cooldown_after_parsing=True, aliases=['tz'])
-    async def timezone(self, ctx):
-        """A base command for interacting with the bot's main feature, timezones."""
-        await ctx.send_help(ctx.command)
-
-    @timezone.command(name='set')
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    async def tz_set(self, ctx, timezone: converters.TZConverter):
-        """Registers or updates **your** timezone with the bot."""
-
-        await self.userdb.update_user(ctx.guild.id, ctx.author.id, timezone)
-        await channel.send(f'\U00002705 Your timezone has been set to {timezone}.')
-
-    @timezone.command(name='setfor')
-    @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.has_permissions(manage_guild=True)
-    async def tz_setfor(self, ctx, target: discord.Member, timezone: converters.TZConverter):
-        """Registers or updates the timezone of someone else in the server.
-        This can only be used by members with the `Manage Server` permission."""
-
-        await self.userdb.update_user(ctx.guild.id, target.id, timezone)
-        await channel.send(f'\U00002705 Set timezone for **{str(target)}** to {timezone}.')
-
-    @timezone.command(name='remove', aliases=['wipe'])
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    async def tz_remove(self, ctx):
-        """Removes your data associated with this server from the bot. This cannot be undone."""
-
-        await self.userdb.delete_user(ctx.guild.id, ctx.author.id)
-        await channel.send('\U00002705 Your timezone has been removed.')
-
-    @timezone.command(name='removefor')
-    @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.has_permissions(manage_guild=True)
-    async def tz_removefor(self, ctx, *, target: discord.Member):
-        """Removes someone else's timezone data from this server from the bot. This cannot be undone.
-        This can only be used by members with the `Manage Server` permission."""
-
-        await self.userdb.delete_user(ctx.guild.id, target.id)
-        await channel.send(f'\U00002705 Removed zone information for **{str(target)}**.')
-
-    @timezone.command(name='show')
-    @commands.cooldown(1, 10, commands.BucketType.user)
-    async def tz_show(self, ctx, *, user: discord.Member = None):
-        """Either shows your or someone else's timezone."""
-        await self._show(ctx, user)
-
-    @timezone.command(name='list')
-    @commands.cooldown(1, 10, commands.BucketType.guild)
-    async def tz_list(self, ctx):
-        """Shows a list of timezones registered in the guild."""
-        await self._list_guild(ctx)
 
     async def _list_guild(self, ctx):
         """The helper function behind the command `tz list`."""
@@ -147,7 +106,110 @@ class WtCommands(commands.Cog):
         embed = discord.Embed(
             description=f'{tz_format(result)[4:]}: {self.format_user(user)}')
 
-        await channel.send(embed=embed)
+        await ctx.send(embed=embed)
+
+    @commands.group(invoke_without_command=True, cooldown_after_parsing=True, aliases=['tz'])
+    async def timezone(self, ctx):
+        """A base command for interacting with the bot's main feature, timezones."""
+        await ctx.send_help(ctx.command)
+
+    @timezone.command(name='set')
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def tz_set(self, ctx, timezone: converters.TZConverter):
+        """Registers or updates **your** timezone with the bot."""
+
+        await self.userdb.update_user(ctx.guild.id, ctx.author.id, timezone)
+        await ctx.send(f'\U00002705 Your timezone has been set to {timezone}.')
+
+    @timezone.command(name='setfor')
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @commands.has_permissions(manage_guild=True)
+    async def tz_setfor(self, ctx, target: discord.Member, timezone: converters.TZConverter):
+        """Registers or updates the timezone of someone else in the server.
+        This can only be used by members with the `Manage Server` permission."""
+
+        await self.userdb.update_user(ctx.guild.id, target.id, timezone)
+        await ctx.send(f'\U00002705 Set timezone for **{str(target)}** to {timezone}.')
+
+    @timezone.command(name='remove', aliases=['wipe'])
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def tz_remove(self, ctx):
+        """Removes your data associated with this server from the bot. This cannot be undone."""
+
+        await self.userdb.delete_user(ctx.guild.id, ctx.author.id)
+        await ctx.send('\U00002705 Your timezone has been removed.')
+
+    @timezone.command(name='removefor')
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @commands.has_permissions(manage_guild=True)
+    async def tz_removefor(self, ctx, *, target: discord.Member):
+        """Removes someone else's timezone data from this server from the bot. This cannot be undone.
+        This can only be used by members with the `Manage Server` permission."""
+
+        await self.userdb.delete_user(ctx.guild.id, target.id)
+        await ctx.send(f'\U00002705 Removed zone information for **{str(target)}**.')
+
+    @timezone.command(name='show')
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def tz_show(self, ctx, *, user: discord.Member = None):
+        """Either shows your or someone else's timezone."""
+        await self._show(ctx, user)
+
+    @timezone.command(name='list')
+    @commands.cooldown(1, 10, commands.BucketType.guild)
+    async def tz_list(self, ctx):
+        """Shows a list of timezones registered in the guild."""
+        await self._list_guild(ctx)
+
+    @commands.command(name='eval')
+    @commands.is_owner()
+    async def _eval(self, ctx, *, body: str):
+        """Evaluates Python code."""
+
+        env = {
+            'bot': self.bot,
+            'ctx': ctx,
+            'channel': ctx.channel,
+            'author': ctx.author,
+            'command': ctx.command,
+            'guild': ctx.guild,
+            'message': ctx.message,
+            '_': self._last_result
+        }
+
+        env.update(globals())
+
+        body = self.cleanup_code(body)
+        stdout = io.StringIO()
+
+        to_compile = f'async def func():\n{textwrap.indent(body, "  ")}'
+
+        try:
+            exec(to_compile, env)
+        except Exception as e:
+            return await ctx.send(f'```py\n{e.__class__.__name__}: {e}\n```')
+
+        func = env['func']
+
+        try:
+            with redirect_stdout(stdout):
+                ret = await func()
+        except Exception as e:
+            value = stdout.getvalue()
+            await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
+        else:
+            value = stdout.getvalue()
+            try:
+                await ctx.message.add_reaction('\U00002705')
+            except Exception:
+                pass
+
+            if ret is None:
+                if value:
+                    await ctx.send(f'```py\n{value}\n```')
+            else:
+                self._last_result = ret
+                await ctx.send(f'```py\n{value}{ret}\n```')
 
 def setup(bot):
     bot.add_cog(WtCommands(bot))
