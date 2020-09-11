@@ -4,6 +4,7 @@ import asyncio
 import traceback
 
 import aiohttp
+import asyncpg
 import discord
 from discord.ext import commands, tasks
 
