@@ -2,6 +2,7 @@
 
 import asyncio
 import traceback
+import sys
 
 import aiohttp
 import discord
@@ -44,6 +45,39 @@ class WorldTime(commands.AutoShardedBot):
         common.log_print('Command successfully invoked',
                         f'{ctx.guild.name}/{str(ctx.author)}: {ctx.message.content}')
 
+    async def on_command_error(self, ctx, error):
+        """Overridden on_command_error to notify users that they are missing permissions
+        to run a command, the command is on cooldown, or some other issue within the
+        command occurred.
+
+        If the exception isn't handled (i.e. the command doesn't have a local error handler
+        or it isn't handled by this error handler), this prints its traceback to `sys.stderr`
+        and notifies the user the string representation of the exception."""
+
+        if hasattr(ctx.command, 'on_error'):
+            return
+
+        error = getattr(error, 'original', error)
+
+        if isinstance(error, commands.CommandOnCooldown):
+            return await ctx.send(
+                f'That command is on cooldown for you, try again in {round(error.retry_after)}s.')
+
+        elif isinstance(error, commands.MissingPermissions):
+            joined_perms = ', '.join(
+                f"`{perm.replace('_', ' ').replace('guild', 'server').title()}`"
+                for perm in error.missing_perms
+                )
+
+            return await ctx.send(
+                f'You are missing the {joined_perms} permission(s) to run that command.'
+            )
+
+        await ctx.send(f'{type(error)}: {str(error)}')  # not handled
+
+        common.log_print('Unhandled exception', ctx.command.qualified_name, file=sys.stderr)
+        traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
+
     async def on_message(self, message):
         """Called for every message.
 
@@ -61,7 +95,8 @@ class WorldTime(commands.AutoShardedBot):
         if message.guild is None:
             common.log_print('Incoming DM', '{0}: {1}'.format(message.author,
                                                               message.content.replace('\n', '\\n')))
-            await message.channel.send("I don't work in DMs, only in a server!")
+            return await message.channel.send("I don't work in DMs, only in a server!")
+            # Having a return should be fine here, we don't want to process commands in a DM context.
 
         # Consider using a cache here of some sorts instead of updating the actual
         # database on every message. On high traffic guilds this could become a problem.

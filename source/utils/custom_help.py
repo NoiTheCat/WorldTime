@@ -3,6 +3,8 @@ import textwrap
 import discord
 from discord.ext import commands
 
+import config
+
 class CustomHelpCommand(commands.HelpCommand):
     """A customized HelpCommand."""
 
@@ -23,7 +25,7 @@ class CustomHelpCommand(commands.HelpCommand):
             description=textwrap.dedent('''
                 World Time v{0}
                 Serving {1} communities across {2} time zones.
-            '''.format(BotVersion, len(self.context.bot.guilds), tzcount))
+            '''.format(config.bot_version, len(self.context.bot.guilds), tzcount))
         )
 
         raw_commands = sorted(self.context.bot.commands, key=lambda cmd: cmd.name)

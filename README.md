@@ -25,6 +25,3 @@ PRIMARY KEY (guild_id, user_id)
 ## Links
 - [Repository](https://github.com/NoiTheCat/WorldTime)
 - [Discord Bots](https://bots.discord.pw/bots/447266583459528715)
-
-
-
