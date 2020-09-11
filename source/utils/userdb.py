@@ -8,7 +8,7 @@ class DatabaseUtil:
     """A simple database utility class for making interactions with our
     database slightly more sane."""
 
-    def __init__(self, pool: asyncpg.Pool):
+    def __init__(self, pool: asyncpg.pool.Pool):
         """Sets up the PostgreSQL connection to be used by this instance."""
         self.pool = pool
 
