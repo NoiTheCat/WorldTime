@@ -7,11 +7,10 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 
+import config
 from source.utils import common
 from source.utils.custom_help import CustomHelpCommand
-import config
-from userdb import UserDatabase
-from commands import WtCommands
+from source.utils.userdb import UserDatabase
 
 EXTENSIONS = ['source.commands']
 

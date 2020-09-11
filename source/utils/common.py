@@ -1,10 +1,11 @@
-# Common items used throughout the project
+# Common functions/items used throughout the project
 
-from datetime import datetime
 import pytz
 
+from datetime import datetime
+
 # For case-insensitive time zone lookup, map lowercase tzdata entries with
-# entires with proper case. pytz is case sensitive.
+# entries with proper case. pytz is case sensitive.
 TIMEZONE_MAPPING = {x.lower(): x for x in pytz.common_timezones}
 
 def log_print(label, line):

@@ -1,6 +1,3 @@
-# Command handlers
-# Incoming commands are fully handled by functions defined here.
-
 from datetime import datetime
 import typing
 
