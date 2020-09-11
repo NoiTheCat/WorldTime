@@ -4,14 +4,12 @@ import asyncio
 import traceback
 
 import aiohttp
-import asyncpg
 import discord
 from discord.ext import commands, tasks
 
 import config
 from source.utils import common
 from source.utils.custom_help import CustomHelpCommand
-from source.utils.userdb import DatabaseUtil
 
 EXTENSIONS = ['source.commands']
 
@@ -132,11 +130,3 @@ class WorldTime(commands.AutoShardedBot):
     async def on_periodic_report_error(self, exc):
         """Called if an exception occurs within our periodic report task."""
         traceback.print_exc()
-
-    def run(self):
-        """Overridden run to initialize our database connection pool and userdb utility."""
-
-        self.db = self.loop.run_until_complete(asyncpg.create_pool(config.pg_uri))
-        self.userdb = DatabaseUtil(self.db)
-
-        super().run(config.bot_token)

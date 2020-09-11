@@ -10,4 +10,6 @@ from source.utils.userdb import DatabaseUtil
 common.log_print("World Time", f"World Time v {config.bot_version}")
 
 bot = WorldTime()
-bot.run()
+bot.db = bot.loop.run_until_complete(asyncpg.create_pool(config.pg_uri))
+
+bot.run(config.bot_token)
