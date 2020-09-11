@@ -90,7 +90,7 @@ class WorldTime(commands.AutoShardedBot):
         common.log_print("Report", f"Currently in {guilds} guild(s).")
 
         try:
-            authtoken = settings.DBotsApiKey
+            authtoken = config.DBotsApiKey
         except AttributeError:
             return
 

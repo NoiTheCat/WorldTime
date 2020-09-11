@@ -88,7 +88,7 @@ class WtCommands(commands.Cog):
         await self.userdb.delete_user(ctx.guild.id, target.id)
         await channel.send(f'\U00002705 Removed zone information for **{str(target)}**.')
 
-    @timezone.command(name='show', aliases=['list'])
+    @timezone.command(name='show')
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def tz_show(self, ctx, *, user: discord.Member = None):
         """Either shows your or someone else's timezone."""
