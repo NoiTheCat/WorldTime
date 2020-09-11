@@ -10,6 +10,7 @@ from discord.ext import commands, tasks
 import config
 from source.utils import common
 from source.utils.custom_help import CustomHelpCommand
+from source.utils.userdb import DatabaseUtil
 
 EXTENSIONS = ['source.commands']
 
@@ -74,9 +75,12 @@ class WorldTime(commands.AutoShardedBot):
         await self.userdb.update_activity(message.guild.id, message.author.id)
 
     async def close(self):
-        """Overridden close to cancel our periodic report task."""
+        """Overridden close to cancel our periodic report task. and close the database
+        connection."""
 
+        await self.db.close()
         self.periodic_report.cancel()
+
         return await super().close()
 
     @tasks.loop(seconds=21600)
@@ -127,3 +131,11 @@ class WorldTime(commands.AutoShardedBot):
     async def on_periodic_report_error(self, exc):
         """Called if an exception occurs within our periodic report task."""
         traceback.print_exc()
+
+    def run(self):
+        """Overridden run to initialize our database connection pool and userdb utility."""
+
+        self.db = await asyncpg.create_pool(config.pg_uri)
+        self.userdb = DatabaseUtil(self.db)
+
+        super().run(config.bot_token)
