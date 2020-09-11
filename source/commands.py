@@ -16,7 +16,7 @@ class WtCommands(commands.Cog):
         bot.help_command = CustomHelpCommand()
         bot.help_command.cog = self
 
-        self.userdb = bot.userdb  # just to be sure :^)
+        self.userdb = self.bot.userdb  # just to be sure :^)
 
     def cog_unload(self):
         self.bot.help_command = CustomHelpCommand()
