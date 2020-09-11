@@ -12,7 +12,7 @@ class CustomHelpCommand(commands.HelpCommand):
         super().__init__(command_attrs={
             'help': 'Shows help for a specific command or for the whole bot.'})
 
-    def show_full_help(self) -> discord.Embed:
+    async def show_full_help(self) -> discord.Embed:
         """A function that returns an embed containing full help for the bot."""
 
         tzcount = await self.context.bot.userdb.get_unique_tz_count()
@@ -48,7 +48,7 @@ class CustomHelpCommand(commands.HelpCommand):
         # Just disregard mapping here, we don't really need it
         """Sends help for the entire bot."""
 
-        embed = self.show_full_help()
+        embed = await self.show_full_help()
         await self.context.send(embed=embed)
 
     async def show_help_for(self, command) -> discord.Embed:
@@ -87,5 +87,5 @@ class CustomHelpCommand(commands.HelpCommand):
         """We don't want to show help for a specific cog, so we instead
         show help for the whole bot."""
 
-        embed = self.show_full_help()
+        embed = await self.show_full_help()
         await self.context.send(embed=embed)
