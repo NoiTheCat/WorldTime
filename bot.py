@@ -135,7 +135,7 @@ class WorldTime(commands.AutoShardedBot):
     def run(self):
         """Overridden run to initialize our database connection pool and userdb utility."""
 
-        self.db = await asyncpg.create_pool(config.pg_uri)
+        self.db = self.loop.run_until_complete(asyncpg.create_pool(config.pg_uri))
         self.userdb = DatabaseUtil(self.db)
 
         super().run(config.bot_token)
