@@ -8,7 +8,6 @@ import pytz
 from source.utils import converters
 from source.utils.custom_help import CustomHelpCommand
 from source.utils.common import tz_format
-from source.utils.userdb import DatabaseUtil
 
 class WtCommands(commands.Cog):
     def __init__(self, bot):
@@ -17,7 +16,7 @@ class WtCommands(commands.Cog):
         bot.help_command = CustomHelpCommand()
         bot.help_command.cog = self
 
-        self.userdb = DatabaseUtil(self.bot.db)
+        self.userdb = bot.userdb
 
     def cog_unload(self):
         self.bot.help_command = CustomHelpCommand()

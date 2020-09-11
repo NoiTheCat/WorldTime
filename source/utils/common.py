@@ -4,6 +4,8 @@ import pytz
 
 from datetime import datetime
 
+EXTENSIONS = ['source.commands']
+
 # For case-insensitive time zone lookup, map lowercase tzdata entries with
 # entries with proper case. pytz is case sensitive.
 TIMEZONE_MAPPING = {x.lower(): x for x in pytz.common_timezones}

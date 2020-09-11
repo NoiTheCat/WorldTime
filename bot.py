@@ -11,11 +11,9 @@ import config
 from source.utils import common
 from source.utils.custom_help import CustomHelpCommand
 
-EXTENSIONS = ['source.commands']
-
 class WorldTime(commands.AutoShardedBot):
     def __init__(self, *args, **kwargs):
-        """Overridden __init__ method to include custom attributes
+        """Overridden __init__ method to include custom attributes (session)
         and to start our periodic report task."""
 
         super().__init__(*args,
@@ -25,29 +23,22 @@ class WorldTime(commands.AutoShardedBot):
                         **kwargs)
 
         # although you might wanna remove this loop kwarg for the session creation below,
-        # cause theoretically it's gonna be deprecated.
+        # cause it's gonna be deprecated.
         self.session = aiohttp.ClientSession(loop=self.loop)
 
         self.periodic_report.start()
-
-        for extension in EXTENSIONS:
-            try:
-                self.load_extension(extension)
-                print(f'[EXTENSION] {extension} was loaded successfully!')
-            except Exception as e:
-                print(f'[WARNING] Could not load extension {extension}: {e}')
 
     async def on_ready(self):
         """Called when the bot's internal cache is ready."""
         common.log_print('Status', f'Connected as {self.user.name} ({self.user.id})')
 
-    async def on_command(self, context):
+    async def on_command(self, ctx):
         """Called before a command is about to be invoked."""
 
         common.log_print('Command about to be invoked',
                         f'{ctx.guild.name}/{str(ctx.author)}: {ctx.message.content}')
 
-    async def on_command_completion(self, context):
+    async def on_command_completion(self, ctx):
         """Called when a command has completed its invocation."""
 
         common.log_print('Command successfully invoked',
@@ -56,9 +47,13 @@ class WorldTime(commands.AutoShardedBot):
     async def on_message(self, message):
         """Called for every message.
 
+        This implementation waits until the bot is ready before processing messages.
+
         If the user is a bot, then returns.
         If the message is from a non-guild context, a message is sent to the channel
         and the message information is logged."""
+
+        await self.wait_until_ready()
 
         if message.author.bot:
             return
@@ -72,6 +67,8 @@ class WorldTime(commands.AutoShardedBot):
         # database on every message. On high traffic guilds this could become a problem.
 
         await self.userdb.update_activity(message.guild.id, message.author.id)
+
+        await self.process_commands(message)  # This is necessary.
 
     async def close(self):
         """Overridden close to cancel our periodic report task. and close the database
@@ -95,6 +92,7 @@ class WorldTime(commands.AutoShardedBot):
         try:
             authtoken = config.DBotsApiKey
         except AttributeError:
+            print('Bot has no Discord Bots API key, aborting API request.')
             return
 
         json = {
