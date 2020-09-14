@@ -28,6 +28,12 @@ class WorldTime(commands.AutoShardedBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.colour = discord.Colour(4832159)
 
+        self.periodic_report.start()
+
+    @property
+    def invite_url(self):
+        """Since I can't use `self.user.id` if the bot isn't logged in yet..."""
+
         perms = discord.Permissions(
             add_reactions=True,
             attach_files=True,
@@ -37,9 +43,7 @@ class WorldTime(commands.AutoShardedBot):
             read_message_history=True,
             )
 
-        self.invite_url = discord.utils.oauth_url(self.user.id, permissions=perms)
-
-        self.periodic_report.start()
+        return discord.utils.oauth_url(self.user.id, permissions=perms)
 
     async def on_ready(self):
         """Called when the bot's internal cache is ready."""
