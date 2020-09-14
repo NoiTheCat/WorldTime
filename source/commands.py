@@ -18,7 +18,7 @@ class ListSource(menus.ListPageSource):
     """A simple menu class for paginating lists."""
 
     def __init__(self, data):
-        super().__init__(data, per_page=5)
+        super().__init__(data, per_page=8)
         self.data = data
 
     async def format_page(self, menu, entry) -> discord.Embed:
