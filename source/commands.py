@@ -135,6 +135,12 @@ class WtCommands(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command()
+    @commands.cooldown(1, 10, BucketType.guild)
+    async def invite(self, ctx):
+        """Get an invite link to invite the bot to your server."""
+        await ctx.send(f'<{self.bot.invite_url}>')
+
     @commands.group(invoke_without_command=True, cooldown_after_parsing=True, aliases=['tz'])
     async def timezone(self, ctx):
         """A base command for interacting with the bot's main feature, timezones."""

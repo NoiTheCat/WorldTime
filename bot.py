@@ -28,6 +28,17 @@ class WorldTime(commands.AutoShardedBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.colour = discord.Colour(4832159)
 
+        perms = discord.Permissions(
+            add_reactions=True,
+            attach_files=True,
+            embed_links=True,
+            send_messages=True,
+            read_messages=True,
+            read_message_history=True,
+            )
+
+        self.invite_url = discord.utils.oauth_url(self.user.id, permissions=perms)
+
         self.periodic_report.start()
 
     async def on_ready(self):

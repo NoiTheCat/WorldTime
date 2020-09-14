@@ -36,13 +36,20 @@ class CustomHelpCommand(commands.HelpCommand):
         embed.add_field(name='Commands', value='\n'.join(values))
 
         embed.add_field(
+            name='Relevant URLS',
+            value=f'To invite me to your server, you can click [here]({self.context.bot.invite_url})!',
+            inline=False)
+
+        embed.add_field(
             name='Zones',
             value=textwrap.dedent("""
             This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under
             https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
         """), inline=False)
 
-        embed.set_footer(text='World Time', icon_url=self.context.bot.user.avatar_url)
+        embed.set_footer(
+            text=self.context.bot.user.name,
+            icon_url=self.context.bot.user.avatar_url)
 
         return embed
 
