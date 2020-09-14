@@ -149,7 +149,7 @@ class WtCommands(commands.Cog):
             f'your server. This instance is owned by {str(self.bot.get_user(self.bot.owner_id))}.')
 
     @commands.command()
-    @commands.cooldown(1, 10, BucketType.guild)
+    @commands.cooldown(1, 10, commands.BucketType.guild)
     async def invite(self, ctx):
         """Get an invite link to invite the bot to your server."""
         await ctx.send(f'<{self.bot.invite_url}>')
