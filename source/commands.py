@@ -136,6 +136,19 @@ class WtCommands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
+    async def ping(self, ctx):
+        """Get the bot's Discord WebSocket latency."""
+        await ctx.send(f'\U0001f3d3 Pong! {round(self.bot.latency * 1000, 1)} ms.')
+
+    @commands.command(hidden=True)
+    async def hello(self, ctx):
+        """Displays the bot's intro message."""
+
+        await ctx.send(
+            f"Hello, I'm {self.bot.user.name}, a bot dedicated to keeping track of timezones on "
+            f'your server. This instance is owned by {str(self.bot.get_user(self.bot.owner_id))}.')
+
+    @commands.command()
     @commands.cooldown(1, 10, BucketType.guild)
     async def invite(self, ctx):
         """Get an invite link to invite the bot to your server."""
