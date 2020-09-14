@@ -14,7 +14,7 @@ from source.utils.custom_help import CustomHelpCommand
 
 class WorldTime(commands.AutoShardedBot):
     def __init__(self, *args, **kwargs):
-        """Overridden __init__ method to include custom attributes (session)
+        """Overridden __init__ method to include custom attributes (session & colour)
         and to start our periodic report task."""
 
         super().__init__(*args,
@@ -26,6 +26,7 @@ class WorldTime(commands.AutoShardedBot):
         # although you might wanna remove this loop kwarg for the session creation below,
         # cause it's gonna be deprecated.
         self.session = aiohttp.ClientSession(loop=self.loop)
+        self.colour = discord.Colour(4832159)
 
         self.periodic_report.start()
 
@@ -105,7 +106,8 @@ class WorldTime(commands.AutoShardedBot):
 
         if message.guild is None:
             common.log_print('Incoming DM', '{0}: {1}'.format(message.author,
-                                                              message.content.replace('\n', '\\n')))
+                                                              message.content.replace('\n', '\\n'))
+                                                              )
             return await message.channel.send("I don't work in DMs, only in a server!")
             # Having a return should be fine here, we don't want to process commands in a DM context.
 
@@ -177,3 +179,9 @@ class WorldTime(commands.AutoShardedBot):
     async def on_periodic_report_error(self, exc):
         """Called if an exception occurs within our periodic report task."""
         traceback.print_exc()
+
+    def run(self, *args, **kwargs):
+        """Why not override run so that we don't have to access the config
+        token in another file?"""
+
+        return super().run(config.bot_token, **kwargs)

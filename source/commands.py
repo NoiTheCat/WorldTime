@@ -6,14 +6,40 @@ import io
 from contextlib import redirect_stdout
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, menus
 import pytz
 
 from source.utils import converters
 from source.utils.custom_help import CustomHelpCommand
 from source.utils.common import tz_format
 
+
+class ListSource(menus.ListPageSource):
+    """A simple menu class for paginating lists."""
+
+    def __init__(self, data):
+        super().__init__(data, per_page=5)
+        self.data = data
+
+    async def format_page(self, menu, entry) -> discord.Embed:
+        """An abstract method that formats each entry and returns
+        them in an embed."""
+
+        embed = discord.Embed(
+            colour=menu.ctx.bot.colour,
+            title=f'Registered timezones in {menu.ctx.guild.name}',
+            description=entry if len(self.data) == 1 else '\n'.join(entry)
+            )
+
+        embed.set_footer(
+            text=f'Page {menu.current_page + 1}/{menu._source.get_max_pages()}')
+
+        return embed
+
+
 class WtCommands(commands.Cog):
+    """The cog containing all of the bot's commands."""
+
     def __init__(self, bot):
         self.bot = bot
         self._original_help_command = bot.help_command
@@ -84,8 +110,8 @@ class WtCommands(commands.Cog):
 
             tzs.append(f"{k[4:]}: {self.format_users(members)}")
 
-        embed = discord.Embed(description='\n'.join(tzs))
-        await ctx.send(embed=embed)
+        pages = menus.MenuPages(ListSource(tzs), delete_message_after=True)
+        await pages.start(ctx)
 
     async def _show(self, ctx, user):
         """The helper function behind the command `tz show`."""
@@ -104,6 +130,7 @@ class WtCommands(commands.Cog):
             return await ctx.send('\U0000274c The given user does not have a time zone set.')
 
         embed = discord.Embed(
+            colour=ctx.bot.colour,
             description=f'{tz_format(result)[4:]}: {self.format_user(user)}')
 
         await ctx.send(embed=embed)

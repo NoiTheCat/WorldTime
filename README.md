@@ -8,7 +8,7 @@ A social time zone reference tool! Displays the current time for all your active
 For more information, see the `DiscordBots.md` file.
 
 ## Setup
-1. Install the necessary dependencies: `pytz`, `discord.py`, `asyncpg`
+1. Install the necessary dependencies from `requirements.txt` (`pip install requirements.txt` or any variation).
 2. Install PostgreSQL on your system, and then run the following schema to create the userdata table:
 ```sql
 CREATE TABLE IF NOT EXISTS userdata (

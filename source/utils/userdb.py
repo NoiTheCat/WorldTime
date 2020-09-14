@@ -6,7 +6,7 @@ from source.utils.common import tz_format
 
 class DatabaseUtil:
     """A simple database utility class for making interactions with our
-    database slightly more sane."""
+    database slightly easier."""
 
     def __init__(self, pool: asyncpg.pool.Pool):
         """Sets up the PostgreSQL connection to be used by this instance."""

@@ -20,4 +20,4 @@ for extension in common.EXTENSIONS:
     except Exception as e:
         print(f'[WARNING] Could not load extension {extension}: {e}')
 
-bot.run(config.bot_token)
+bot.run()

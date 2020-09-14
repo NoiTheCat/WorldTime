@@ -20,7 +20,7 @@ class CustomHelpCommand(commands.HelpCommand):
         tzcount = await self.context.bot.userdb.get_unique_tz_count()
 
         embed = discord.Embed(
-            color=14742263,
+            color=self.context.bot.colour,
             title='Help & About',
             description=textwrap.dedent('''
                 World Time v{0}
@@ -58,7 +58,7 @@ class CustomHelpCommand(commands.HelpCommand):
         a command or group."""
 
         embed = discord.Embed(
-            color=14742263,
+            color=self.context.bot.colour,
             title=f'{command.qualified_name} {command.signature}',
             description=command.help or 'No help given')
 
