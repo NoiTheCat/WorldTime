@@ -32,7 +32,7 @@ class WorldTime(commands.AutoShardedBot):
 
     @property
     def invite_url(self):
-        """Since I can't use `self.user.id` if the bot isn't logged in yet..."""
+        """Since we can't use `self.user.id` if the bot isn't logged in yet..."""
 
         perms = discord.Permissions(
             add_reactions=True,

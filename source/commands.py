@@ -28,7 +28,7 @@ class ListSource(menus.ListPageSource):
         embed = discord.Embed(
             colour=menu.ctx.bot.colour,
             title=f'Registered timezones in {menu.ctx.guild.name}',
-            description=entry if len(self.data) == 1 else '\n'.join(entry)
+            description=entry[0] if len(self.data) == 1 else '\n'.join(entry)
             )
 
         embed.set_footer(
