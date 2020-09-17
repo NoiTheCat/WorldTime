@@ -201,7 +201,7 @@ class WorldTime(commands.AutoShardedBot):
                             f'Discord Bots API report HTTP status: {resp.status}')
 
     @periodic_report.error
-    async def on_periodic_report_error(self, exc):
+    async def on_periodic_report_error(self, error):
         """Called if an exception occurs within our periodic report task."""
 
         common.log_print('Report', 'Periodic report task failed', file=sys.stderr)
@@ -221,7 +221,7 @@ class WorldTime(commands.AutoShardedBot):
         self._faux_cache = {}
 
     @update_users.error
-    async def on_update_users_error(self, exc):
+    async def on_update_users_error(self, error):
         """Called if an exception occurs within our user update task."""
 
         common.log_print('Report', 'Update users task failed', file=sys.stderr)
