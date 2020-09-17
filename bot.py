@@ -213,8 +213,9 @@ class WorldTime(commands.AutoShardedBot):
 
         await self.wait_until_ready()
 
-        for guild_id, user_id in self._faux_cache.items():
-            await self.userdb.update_activity(guild_id, user_id)
+        for guild_id, user_id_set in self._faux_cache.items():
+            for user_id in user_id_set:
+                await self.userdb.update_activity(guild_id, user_id)
 
         common.log_print('Report', 'Successfully updated active users.')
 
