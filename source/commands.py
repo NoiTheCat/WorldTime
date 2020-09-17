@@ -111,7 +111,7 @@ class WtCommands(commands.Cog):
             tzs.append(f"{k[4:]}: {self.format_users(members)}")
 
         pages = menus.MenuPages(ListSource(tzs), delete_message_after=True)
-        await pages.start(ctx)
+        return await pages.start(ctx)
 
     async def _show(self, ctx, user):
         """The helper function behind the command `tz show`."""
@@ -133,7 +133,7 @@ class WtCommands(commands.Cog):
             colour=ctx.bot.colour,
             description=f'{tz_format(result)[4:]}: {self.format_user(user)}')
 
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @commands.command()
     async def ping(self, ctx):

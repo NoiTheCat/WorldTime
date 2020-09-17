@@ -33,8 +33,6 @@ class DatabaseUtil:
         Does not do any sanitizing of incoming values, as only a small set of
         values are allowed anyway. This is enforced by the caller."""
 
-        await self.delete_user(guild_id, user_id)
-
         query = """INSERT INTO userdata (guild_id, user_id, zone)
                    VALUES ($1, $2, $3)
                    ON CONFLICT (guild_id, user_id)

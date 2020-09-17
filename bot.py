@@ -28,7 +28,10 @@ class WorldTime(commands.AutoShardedBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.colour = discord.Colour(4832159)
 
+        self._faux_cache = {}
+
         self.periodic_report.start()
+        self.update_users.start()
 
     @property
     def invite_url(self):
@@ -112,7 +115,9 @@ class WorldTime(commands.AutoShardedBot):
 
         If the user is a bot, then returns.
         If the message is from a non-guild context, a message is sent to the channel
-        and the message information is logged."""
+        and the message information is logged and the function returns.
+
+        The user is then added to the cache for their activity to be updated."""
 
         await self.wait_until_ready()
 
@@ -126,10 +131,10 @@ class WorldTime(commands.AutoShardedBot):
             return await message.channel.send("I don't work in DMs, only in a server!")
             # Having a return should be fine here, we don't want to process commands in a DM context.
 
-        # Consider using a cache here of some sorts instead of updating the actual
-        # database on every message. On high traffic guilds this could become a problem.
-
-        await self.userdb.update_activity(message.guild.id, message.author.id)
+        try:
+            self._faux_cache[message.guild.id].add(message.author.id)
+        except KeyError:
+            self._faux_cache[message.guild.id] = {message.author.id}
 
         await self.process_commands(message)  # This is necessary.
 
@@ -141,8 +146,11 @@ class WorldTime(commands.AutoShardedBot):
         await self.session.close()
 
         self.periodic_report.cancel()
+        self.update_users.cancel()
 
-        return await super().close()
+        self._faux_cache = {}
+
+        await super().close()
 
     @tasks.loop(seconds=21600)
     async def periodic_report(self):
@@ -169,9 +177,11 @@ class WorldTime(commands.AutoShardedBot):
             "Authorization": authtoken
             }
 
-        async with self.session.request('POST',
-                                        f'https://discord.bots.gg/api/v1/bots/{self.user.id}/stats',
-                                        json=json, headers=headers) as resp:
+        async with self.session.request(
+            'POST',
+            f'https://discord.bots.gg/api/v1/bots/{self.user.id}/stats',
+            json=json, headers=headers) \
+                as resp:
 
             if 300 > resp.status >= 200:
                 common.log_print('Report', 'Reported count to Discord Bots.')
@@ -193,7 +203,29 @@ class WorldTime(commands.AutoShardedBot):
     @periodic_report.error
     async def on_periodic_report_error(self, exc):
         """Called if an exception occurs within our periodic report task."""
-        traceback.print_exc()
+
+        common.log_print('Report', 'Periodic report task failed', file=sys.stderr)
+        traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
+
+    @tasks.loop(minutes=1)
+    async def update_users(self):
+        """A backround task that updates users' activity every minute."""
+
+        await self.wait_until_ready()
+
+        for guild_id, user_id in self._faux_cache.items():
+            await self.userdb.update_activity(guild_id, user_id)
+
+        common.log_print('Report', 'Successfully updated active users.')
+
+        self._faux_cache = {}
+
+    @update_users.error
+    async def on_update_users_error(self, exc):
+        """Called if an exception occurs within our user update task."""
+
+        common.log_print('Report', 'Update users task failed', file=sys.stderr)
+        traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
     def run(self, *args, **kwargs):
         """Why not override run so that we don't have to access the config
