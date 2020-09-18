@@ -52,7 +52,7 @@ class CustomHelpCommand(commands.HelpCommand):
         if command_matches:
             embed.add_field(
                 name='Maybe you meant one of these?',
-                value='\n'.join(f'`{x}`' for x in possible_matches_commands),
+                value='\n'.join(f'`{x}`' for x in command_matches),
                 inline=False)
 
         return await self.context.send(embed=embed)
