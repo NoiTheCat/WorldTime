@@ -22,7 +22,8 @@ class BetterUserConverter(commands.Converter):
     """A custom converter that attempts to resolve the given argument
     to a Member or User. If both of those fails, it raises BadArgument."""
 
-    async def convert(self, ctx, argument) -> typing.Optional[typing.Union[discord.Member, discord.User]]:
+    async def convert(self, ctx, argument
+    ) -> typing.Optional[typing.Union[discord.Member, discord.User]]:
         try:
             user = await commands.MemberConverter().convert(ctx, argument)
             return user

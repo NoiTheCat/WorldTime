@@ -10,7 +10,7 @@ EXTENSIONS = ['source.commands']
 # entries with proper case. pytz is case sensitive.
 TIMEZONE_MAPPING = {x.lower(): x for x in pytz.common_timezones}
 
-def log_print(label, line, **kwargs):  # kwargs here allows us to pass in stuff like `file=sys.stderr`
+def log_print(label, line, **kwargs):  # kwargs here allows us to pass in kwargs for a normal print()
     """
     Print with timestamp in a way that resembles some of my other projects
     """

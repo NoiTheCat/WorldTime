@@ -86,7 +86,7 @@ class WorldTime(commands.AutoShardedBot):
 
         elif isinstance(error, commands.CommandOnCooldown):
             return await ctx.send(
-                f'That command is on cooldown for you, try again in {round(error.retry_after)}s.')
+                f'That command is on cooldown, try again in {round(error.retry_after)}s.')
 
         elif isinstance(error, commands.MissingPermissions):
             joined_perms = ', '.join(
