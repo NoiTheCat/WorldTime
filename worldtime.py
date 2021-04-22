@@ -8,7 +8,7 @@
 # pytz, psycopg2, discord.py
 # How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py
 
-from discord import Game
+from discord import Intents
 from client import WorldTime
 import settings
 import common
@@ -23,12 +23,14 @@ if __name__ == '__main__':
         print("Bot token not set. Will not continue.")
         exit()
 
-    # Note: Cannot disable guild_subscriptions - disables user cache when used in tandem w/ fetch_offline_members
     # todo: sharding options handled here: pass shard_id and shard_count parameters
+    subscribedIntents = Intents.none()
+    subscribedIntents.guilds = True
+    subscribedIntents.members = True
+    subscribedIntents.guild_messages = True
     client = WorldTime(
-        fetch_offline_members=False,
-        # guild_subscriptions=False,
         max_messages=None,
+        intents = subscribedIntents
     )
     
     client.run(settings.BotToken)
