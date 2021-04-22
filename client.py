@@ -16,9 +16,9 @@ class WorldTime(discord.AutoShardedClient):
         self.commands = WtCommands(self.userdb, self)
         self.bg_task = self.loop.create_task(self.periodic_report())
 
-    async def on_ready(self):
-        logPrint('Status', 'Connected as {0} ({1})'.format(self.user.name, self.user.id))
-        await self.change_presence(activity=discord.Game("tz.help"))
+    async def on_shard_connect(self, sid):
+        logPrint('Status', 'Shard {2} connected as {0} ({1})'.format(self.user.name, self.user.id, sid))
+        await self.change_presence(activity=discord.Game("tz.help"), shard_id=sid)
     
     async def on_message(self, message):
         # ignore bots (should therefore also ignore self)
