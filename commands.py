@@ -13,6 +13,8 @@ from userdb import UserDatabase
 from common import tzlcmap, logPrint
 
 class WtCommands:
+    errStrInvalidZone = ':x: Not a valid zone name. To find your time zone, refer to: <https://kevinnovak.github.io/Time-Zone-Picker/>'
+
     def __init__(self, userdb: UserDatabase, client: discord.Client):
         self.userdb = userdb
         self.dclient = client
@@ -111,7 +113,7 @@ class WtCommands:
             `tz.removeFor [user]` - Removes another user's information.
         '''), inline=False)
         em.add_field(name='Zones', value=dedent('''
-            This bot uses zone names from the tz database. Most common zones are supported. For a list of entries, see the "TZ database name" column under https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
+            This bot accepts zone names from the IANA Time Zone Database (a.k.a. Olson Database). A useful tool to determine yours can be found at: https://kevinnovak.github.io/Time-Zone-Picker/
         '''), inline=False)
         await channel.send(embed=em)
 
@@ -124,7 +126,7 @@ class WtCommands:
         try:
             zoneinput = tzlcmap[wspl[1].lower()]
         except KeyError:
-            await channel.send(':x: Not a valid zone name.')
+            await channel.send(self.errStrInvalidZone)
             return
         self.userdb.update_user(guild.id, author.id, zoneinput)
         await channel.send(':white_check_mark: Your zone has been set.')
@@ -154,7 +156,7 @@ class WtCommands:
         try:
             zoneinput = tzlcmap[wspl[2].lower()]
         except KeyError:
-            await channel.send(':x: Not a valid zone name.')
+            await channel.send(self.errStrInvalidZone)
             return
 
         # Do the thing
