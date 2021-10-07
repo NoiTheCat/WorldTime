@@ -125,12 +125,14 @@ class WtCommands:
             await channel.send(':x: Zone parameter is required.')
             return
         try:
-            zoneinput = tzlcmap[wspl[1].lower()]
+            userinput = wspl[1].lower()
+            if userinput == "asia/calcutta": userinput = "asia/kolkata"
+            zoneinput = tzlcmap[userinput]
         except KeyError:
             await channel.send(self.errStrInvalidZone)
             return
         self.userdb.update_user(guild.id, author.id, zoneinput)
-        await channel.send(':white_check_mark: Your zone has been set.')
+        await channel.send(f':white_check_mark: Your time zone has been set to **{zoneinput}**.')
 
     async def cmd_setFor(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         if not self._isUserAdmin(author):
@@ -155,14 +157,16 @@ class WtCommands:
         
         # Check the third parameter
         try:
-            zoneinput = tzlcmap[wspl[2].lower()]
+            userinput = wspl[2].lower()
+            if userinput == "asia/calcutta": userinput = "asia/kolkata"
+            zoneinput = tzlcmap[userinput]
         except KeyError:
             await channel.send(self.errStrInvalidZone)
             return
 
         # Do the thing
         self.userdb.update_user(guild.id, targetuser.id, zoneinput)
-        await channel.send(':white_check_mark: Set zone for **' + targetuser.name + '#' + targetuser.discriminator + '**.')
+        await channel.send(f':white_check_mark: Time zone for **{targetuser.name}#{targetuser.discriminator}** set to **{zoneinput}**.')
 
     async def cmd_list(self, guild: discord.Guild, channel: discord.TextChannel, author: discord.User, msgcontent: str):
         wspl = msgcontent.split(' ', 1)
