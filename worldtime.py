@@ -2,11 +2,10 @@
 
 # World Time, a Discord bot. Displays user time zones.
 # - https://github.com/NoiTheCat/WorldTime
-# - https://bots.discord.pw/bots/447266583459528715
+# - https://discord.bots.gg/bots/447266583459528715
 
 # Dependencies (install via pip or other means):
-# pytz, psycopg2, discord.py
-# How to install the latter: pip install -U git+https://github.com/Rapptz/discord.py
+# pytz, psycopg2-binary, discord.py
 
 from discord import Intents
 from client import WorldTime
