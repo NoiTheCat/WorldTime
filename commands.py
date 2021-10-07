@@ -96,8 +96,9 @@ class WtCommands:
             color=14742263,
             title='Help & About',
             description=dedent('''
-                World Time v{0}
-                Serving {1} communities across {2} time zones.
+                World Time v{0} - Serving {1} communities across {2} time zones.
+
+                This bot is provided for free, without any paywalled 'premium' features. If you've found this bot useful, please consider contributing via the bot author's page on Ko-fi: https://ko-fi.com/noithecat.
             '''.format(BotVersion, len(self.dclient.guilds), tzcount))
         )
         em.set_footer(text='World Time', icon_url=self.dclient.user.avatar_url)
