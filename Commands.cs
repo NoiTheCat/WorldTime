@@ -15,6 +15,7 @@ internal class Commands {
     const string ErrInvalidZone = ":x: Not a valid zone name."
         + " To find your time zone, refer to: <https://kevinnovak.github.io/Time-Zone-Picker/>.";
     const string ErrTargetUserNotFound = ":x: Unable to find the target user.";
+    const string ErrNoUserCache = ":warning: Please try the command again.";
     const int MaxSingleLineLength = 750;
     const int MaxSingleOutputLength = 900;
 
@@ -102,6 +103,11 @@ internal class Commands {
     }
 
     private async Task CmdList(SocketTextChannel channel, SocketGuildUser sender, SocketMessage message) {
+        if (!await AreUsersDownloadedAsync(channel.Guild).ConfigureAwait(false)) {
+            await channel.SendMessageAsync(ErrNoUserCache).ConfigureAwait(false);
+            return;
+        }
+
         var wspl = message.Content.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         if (wspl.Length == 2) {
             // Has parameter - do specific user lookup
@@ -206,6 +212,11 @@ internal class Commands {
             await channel.SendMessageAsync(":x: You must specify a time zone to apply to the user.").ConfigureAwait(false);
             return;
         }
+
+        if (!await AreUsersDownloadedAsync(channel.Guild).ConfigureAwait(false)) {
+            await channel.SendMessageAsync(ErrNoUserCache).ConfigureAwait(false);
+            return;
+        }
         var targetuser = ResolveUserParameter(channel.Guild, wspl[1]);
         if (targetuser == null) {
             await channel.SendMessageAsync(ErrTargetUserNotFound).ConfigureAwait(false);
@@ -234,6 +245,11 @@ internal class Commands {
         var wspl = message.Content.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         if (wspl.Length == 1) {
             await channel.SendMessageAsync(":x: You must specify a user for whom to remove time zone data.").ConfigureAwait(false);
+            return;
+        }
+
+        if (!await AreUsersDownloadedAsync(channel.Guild).ConfigureAwait(false)) {
+            await channel.SendMessageAsync(ErrNoUserCache).ConfigureAwait(false);
             return;
         }
         var targetuser = ResolveUserParameter(channel.Guild, wspl[1]);
@@ -304,9 +320,6 @@ internal class Commands {
     /// Given parameter input, attempts to find the corresponding SocketGuildUser.
     /// </summary>
     private static SocketGuildUser? ResolveUserParameter(SocketGuild guild, string input) {
-        // if (!guild.HasAllMembers) await guild.DownloadUsersAsync().ConfigureAwait(false);
-        // TODO selective user downloading - see here when implementing
-
         // Try interpreting as ID
         var match = _userMention.Match(input);
         string idcheckstr = match.Success ? match.Groups[1].Value : input;
@@ -332,6 +345,25 @@ internal class Commands {
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks if the member cache for the specified guild needs to be filled, and sends a request if needed.
+    /// </summary>
+    /// <remarks>
+    /// Due to a quirk in Discord.Net, the user cache cannot be filled until the command handler is no longer executing,
+    /// regardless of if the request runs on its own thread.
+    /// </remarks>
+    /// <returns>
+    /// True if the guild's members are already downloaded. If false, the command handler must notify the user.
+    /// </returns>
+    private static async Task<bool> AreUsersDownloadedAsync(SocketGuild guild) {
+        if (guild.HasAllMembers) return true;
+        else {
+            // Event handler hangs if awaited normally or used with Task.Run
+            await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
+            return false;
+        }
     }
     #endregion
 }

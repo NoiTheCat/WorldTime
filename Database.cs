@@ -8,6 +8,7 @@ namespace WorldTime;
 /// </summary>
 internal class Database {
     private const string UserDatabase = "userdata";
+    private const string CutoffInterval = "INTERVAL '30 days'"; // TODO make configurable?
 
     private readonly string _connectionString;
 
@@ -39,6 +40,25 @@ internal class Database {
     }
 
     /// <summary>
+    /// Checks if a given guild contains at least one user data entry with recent enough activity.
+    /// </summary>
+    public async Task<bool> HasAnyAsync(SocketGuild guild) {
+        using var db = await OpenConnectionAsync().ConfigureAwait(false);
+        using var c = db.CreateCommand();
+        c.CommandText = $@"
+SELECT true FROM {UserDatabase}
+WHERE
+    guild_id = @Gid
+    AND last_active >= now() - {CutoffInterval}
+LIMIT 1
+";
+        c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)guild.Id;
+        await c.PrepareAsync().ConfigureAwait(false);
+        using var r = await c.ExecuteReaderAsync().ConfigureAwait(false);
+        return await r.ReadAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Gets the number of unique time zones in the database.
     /// </summary>
     public async Task<int> GetDistinctZoneCountAsync() {
@@ -51,7 +71,8 @@ internal class Database {
     /// <summary>
     /// Updates the last activity field for the specified guild user, if existing in the database.
     /// </summary>
-    public async Task UpdateLastActivityAsync(SocketGuildUser user) {
+    /// <returns>True if a value was updated, implying that the specified user exists in the database.</returns>
+    public async Task<bool> UpdateLastActivityAsync(SocketGuildUser user) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"UPDATE {UserDatabase} SET last_active = now() " +
@@ -59,7 +80,7 @@ internal class Database {
         c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)user.Guild.Id;
         c.Parameters.Add("@Uid", NpgsqlDbType.Bigint).Value = (long)user.Id;
         await c.PrepareAsync().ConfigureAwait(false);
-        await c.ExecuteNonQueryAsync().ConfigureAwait(false);
+        return await c.ExecuteNonQueryAsync().ConfigureAwait(false) > 0;
     }
 
     // TODO remove data from users with very distant last activity. how long ago?
@@ -124,7 +145,7 @@ internal class Database {
 SELECT zone, user_id FROM {UserDatabase}
 WHERE
     guild_id = @Gid
-    AND last_active >= now() - INTERVAL '30 days' -- TODO make configurable?
+    AND last_active >= now() - {CutoffInterval}
 ORDER BY RANDOM() -- Randomize results for display purposes";
         c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)guildId;
         await c.PrepareAsync().ConfigureAwait(false);

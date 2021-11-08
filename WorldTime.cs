@@ -44,7 +44,6 @@ internal class WorldTime : IDisposable {
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.RetryRatelimit,
             MessageCacheSize = 0, // disable message cache
-            AlwaysDownloadUsers = true,
             GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessages
         });
         DiscordClient.Log += DiscordClient_Log;
@@ -150,7 +149,14 @@ internal class WorldTime : IDisposable {
 
     private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync(Commands.CommandPrefix + "help");
 
+    /// <summary>
+    /// Non-specific handler for incoming events.
+    /// </summary>
     private async Task DiscordClient_MessageReceived(SocketMessage message) {
+        if (message.Author.IsWebhook) return;
+        if (message.Type != MessageType.Default) return;
+        if (message.Channel is not SocketTextChannel channel) return;
+
         /*
          * From https://support-dev.discord.com/hc/en-us/articles/4404772028055:
          * "You will still receive the events and can call the same APIs, and you'll get other data about a message like
@@ -159,13 +165,17 @@ internal class WorldTime : IDisposable {
          * 
          * Assuming this stays true, it will be possible to maintain legacy behavior after this bot loses full access to incoming messages.
          */
-
+        // Attempt to update user's last_seen column
         // POTENTIAL BUG: If user does a list command, the list may be processed before their own time's refreshed, and they may be skipped.
-        if (message.Author.IsWebhook) return;
-        if (message.Type != MessageType.Default) return;
-        if (message.Channel is not SocketTextChannel) return;
+        var hasMemberHint = await Database.UpdateLastActivityAsync((SocketGuildUser)message.Author).ConfigureAwait(false);
 
-        await Database.UpdateLastActivityAsync((SocketGuildUser)message.Author).ConfigureAwait(false);
+        // Proactively fill guild user cache if the bot has any data for the respective guild
+        // Can skip an extra query if the last_seen update is known to have been successful, otherwise query for any users
+        var guild = channel.Guild;
+        if (!guild.HasAllMembers && (hasMemberHint || await Database.HasAnyAsync(guild).ConfigureAwait(false))) {
+            // Event handler hangs if awaited normally or used with Task.Run
+            await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
+        }
     }
     #endregion
 }
