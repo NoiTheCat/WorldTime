@@ -120,19 +120,17 @@ internal class WorldTime : IDisposable {
     private Task DiscordClient_Log(LogMessage arg) {
         // Suppress certain messages
         if (arg.Message != null) {
-            //switch (arg.Message)
-            //{
-            //    case "Connecting":
-            //    case "Connected":
-            //    case "Ready":
+            switch (arg.Message) {
+                case "Connecting":
+                case "Connected":
+                case "Ready":
             //    case "Failed to resume previous session":
             //    case "Resumed previous session":
-            //    case "Disconnecting":
-            //    case "Disconnected":
+                case "Disconnecting":
+                case "Disconnected":
             //    case "WebSocket connection was closed":
-            //    case "Server requested a reconnect":
-            //        return Task.CompletedTask;
-            //}
+                    return Task.CompletedTask;
+            }
             if (arg.Message == "Heartbeat Errored") {
                 // Replace this with a custom message; do not show stack trace
                 Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message} - {arg.Exception.Message}");
@@ -142,7 +140,11 @@ internal class WorldTime : IDisposable {
             Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message}");
         }
 
-        if (arg.Exception != null) Program.Log("Discord.Net exception", arg.Exception.ToString());
+        // Suppress certain exceptions
+        if (arg.Exception != null) {
+            if (arg.Exception is not GatewayReconnectException)
+                Program.Log("Discord.Net exception", arg.Exception.ToString());
+        }
 
         return Task.CompletedTask;
     }
