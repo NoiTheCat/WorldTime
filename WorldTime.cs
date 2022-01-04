@@ -40,7 +40,6 @@ internal class WorldTime : IDisposable {
 
         // Configure client
         DiscordClient = new DiscordShardedClient(new DiscordSocketConfig() {
-            TotalShards = Config.ShardTotal,
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.RetryRatelimit,
             MessageCacheSize = 0, // disable message cache
