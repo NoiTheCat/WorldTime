@@ -120,21 +120,19 @@ internal class WorldTime : IDisposable {
     private Task DiscordClient_Log(LogMessage arg) {
         // Suppress certain messages
         if (arg.Message != null) {
-            switch (arg.Message) {
+            // These warnings appear often as of Discord.Net v3...
+            if (arg.Message.StartsWith("Unknown Dispatch ") || arg.Message.StartsWith("Unknown Channel")) return Task.CompletedTask;
+            switch (arg.Message) // Connection status messages replaced by ShardManager's output
+            {
                 case "Connecting":
                 case "Connected":
                 case "Ready":
-            //    case "Failed to resume previous session":
-            //    case "Resumed previous session":
                 case "Disconnecting":
                 case "Disconnected":
-            //    case "WebSocket connection was closed":
+                case "Resumed previous session":
+                case "Failed to resume previous session":
+                case "Discord.WebSocket.GatewayReconnectException: Server requested a reconnect":
                     return Task.CompletedTask;
-            }
-            if (arg.Message == "Heartbeat Errored") {
-                // Replace this with a custom message; do not show stack trace
-                Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message} - {arg.Exception.Message}");
-                return Task.CompletedTask;
             }
 
             Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message}");
