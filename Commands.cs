@@ -358,11 +358,32 @@ internal class Commands {
     /// True if the guild's members are already downloaded. If false, the command handler must notify the user.
     /// </returns>
     private static async Task<bool> AreUsersDownloadedAsync(SocketGuild guild) {
-        if (guild.HasAllMembers) return true;
+        if (HasMostMembersDownloaded(guild)) return true;
         else {
             // Event handler hangs if awaited normally or used with Task.Run
             await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// An alternative to <see cref="SocketGuild.HasAllMembers"/>.
+    /// Returns true if *most* members have been downloaded.
+    /// Used as a workaround check due to Discord.Net occasionally unable to actually download all members.
+    /// </summary>
+    /// <remarks>Copied directly from BirthdayBot. Try to coordinate changes between projects...</remarks>
+    private static bool HasMostMembersDownloaded(SocketGuild guild) {
+        if (guild.HasAllMembers) return true;
+        if (guild.MemberCount > 30) {
+            // For guilds of size over 30, require 85% or more of the members to be known
+            // (26/30, 42/50, 255/300, etc)
+            int threshold = (int)(guild.MemberCount * 0.85);
+            Program.Log(nameof(HasMostMembersDownloaded),
+                $"Passing with {guild.DownloadedMemberCount}/{guild.MemberCount} in cache for guild {guild.Id}.");
+            return guild.DownloadedMemberCount >= threshold;
+        } else {
+            // For smaller guilds, fail if two or more members are missing
+            return guild.MemberCount - guild.DownloadedMemberCount <= 2;
         }
     }
     #endregion
