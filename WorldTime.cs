@@ -25,7 +25,8 @@ internal class WorldTime : IDisposable {
 
     private readonly Task _statusTask;
     private readonly CancellationTokenSource _mainCancel;
-    private readonly Commands _commands;
+    private readonly CommandsSlash _commands;
+    private readonly CommandsText _commandsTxt;
 
     internal Configuration Config { get; }
     internal DiscordShardedClient DiscordClient { get; }
@@ -48,7 +49,8 @@ internal class WorldTime : IDisposable {
         DiscordClient.Log += DiscordClient_Log;
         DiscordClient.ShardReady += DiscordClient_ShardReady;
         DiscordClient.MessageReceived += DiscordClient_MessageReceived;
-        _commands = new Commands(this, Database);
+        _commands = new CommandsSlash(this, Database);
+        _commandsTxt = new CommandsText(this, Database);
 
         // Start status reporting thread
         _mainCancel = new CancellationTokenSource();
@@ -146,7 +148,7 @@ internal class WorldTime : IDisposable {
         return Task.CompletedTask;
     }
 
-    private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync(Commands.CommandPrefix + "help");
+    private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync(CommandsText.CommandPrefix + "help");
 
     /// <summary>
     /// Non-specific handler for incoming events.
