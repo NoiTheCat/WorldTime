@@ -89,7 +89,7 @@ internal class CommandsSlash : CommandsCommon {
     private async Task DiscordClient_SlashCommandExecuted(SocketSlashCommand arg) {
         SocketGuildChannel? rptChannel = arg.Channel as SocketGuildChannel;
         var rptId = rptChannel?.Guild.Id ?? arg.User.Id;
-        Program.Log("Command executed", $"/{arg.CommandName} by {arg.User} { (rptChannel != null ? "in guild" : "with ID") } {rptId}");
+        Program.Log("Command executed", $"/{arg.CommandName} by {arg.User} in { (rptChannel != null ? "guild" : "DM. User") } ID {rptId}");
 
         CommandResponder responder = arg.Data.Name switch {
             "help" => CmdHelp,
@@ -109,14 +109,7 @@ internal class CommandsSlash : CommandsCommon {
     }
 
     private async Task UnknownCommandHandler(SocketSlashCommand arg) {
-        string place;
-        // Unknown command - set up a report
-        if (arg.Channel is SocketGuildChannel gch) {
-            place = $"Guild {gch.Guild.Id}";
-        } else {
-            place = "Global command";
-        }
-        Program.Log("Command invoked", $"/{arg.Data.Name} is an unknown command! Executed at: {place}");
+        Program.Log("Command invoked", $"/{arg.Data.Name} is an unknown command!");
         await arg.RespondAsync("Oops, that command isn't supposed to be there... Please try something else.",
             ephemeral: true).ConfigureAwait(false);
     }

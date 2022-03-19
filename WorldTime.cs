@@ -148,7 +148,7 @@ internal class WorldTime : IDisposable {
         return Task.CompletedTask;
     }
 
-    private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync(CommandsText.CommandPrefix + "help");
+    private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync("/help");
 
     /// <summary>
     /// Non-specific handler for incoming events.
