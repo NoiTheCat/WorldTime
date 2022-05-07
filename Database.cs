@@ -6,13 +6,13 @@ namespace WorldTime;
 /// <summary>
 /// Database abstractions
 /// </summary>
-internal class Database {
+public class Database {
     private const string UserDatabase = "userdata";
     private const string CutoffInterval = "INTERVAL '30 days'"; // TODO make configurable?
 
     private readonly string _connectionString;
 
-    public Database(string connectionString) {
+    internal Database(string connectionString) {
         _connectionString = connectionString;
         DoInitialDatabaseSetupAsync().ConfigureAwait(false).GetAwaiter().GetResult();
     }
@@ -42,7 +42,7 @@ internal class Database {
     /// <summary>
     /// Checks if a given guild contains at least one user data entry with recent enough activity.
     /// </summary>
-    public async Task<bool> HasAnyAsync(SocketGuild guild) {
+    internal async Task<bool> HasAnyAsync(SocketGuild guild) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $@"
@@ -61,7 +61,7 @@ LIMIT 1
     /// <summary>
     /// Gets the number of unique time zones in the database.
     /// </summary>
-    public async Task<int> GetDistinctZoneCountAsync() {
+    internal async Task<int> GetDistinctZoneCountAsync() {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"SELECT COUNT(DISTINCT zone) FROM {UserDatabase}";
@@ -72,7 +72,7 @@ LIMIT 1
     /// Updates the last activity field for the specified guild user, if existing in the database.
     /// </summary>
     /// <returns>True if a value was updated, implying that the specified user exists in the database.</returns>
-    public async Task<bool> UpdateLastActivityAsync(SocketGuildUser user) {
+    internal async Task<bool> UpdateLastActivityAsync(SocketGuildUser user) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"UPDATE {UserDatabase} SET last_active = now() " +
@@ -89,7 +89,7 @@ LIMIT 1
     /// Removes the specified user from the database.
     /// </summary>
     /// <returns>True if the removal was successful. False typically if the user did not exist.</returns>
-    public async Task<bool> DeleteUserAsync(SocketGuildUser user) {
+    internal async Task<bool> DeleteUserAsync(SocketGuildUser user) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"DELETE FROM {UserDatabase} " +
@@ -103,7 +103,7 @@ LIMIT 1
     /// <summary>
     /// Inserts/updates the specified user in the database.
     /// </summary>
-    public async Task UpdateUserAsync(SocketGuildUser user, string timezone) {
+    internal async Task UpdateUserAsync(SocketGuildUser user, string timezone) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"INSERT INTO {UserDatabase} (guild_id, user_id, zone) " +
@@ -120,7 +120,7 @@ LIMIT 1
     /// <summary>
     /// Retrieves the time zone name of a single user.
     /// </summary>
-    public async Task<string?> GetUserZoneAsync(SocketGuildUser user) {
+    internal async Task<string?> GetUserZoneAsync(SocketGuildUser user) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $"SELECT zone FROM {UserDatabase} " +
@@ -138,7 +138,7 @@ LIMIT 1
     /// <returns>
     /// An unsorted dictionary. Keys are time zones, values are user IDs representative of those zones.
     /// </returns>
-    public async Task<Dictionary<string, List<ulong>>> GetGuildZonesAsync(ulong guildId) {
+    internal async Task<Dictionary<string, List<ulong>>> GetGuildZonesAsync(ulong guildId) {
         using var db = await OpenConnectionAsync().ConfigureAwait(false);
         using var c = db.CreateCommand();
         c.CommandText = $@" -- Simpler query than 1.x; most filtering is now done by caller

@@ -1,5 +1,8 @@
 ﻿global using Discord;
 global using Discord.WebSocket;
+using Discord.Interactions;
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 using System.Text;
 
 namespace WorldTime;
@@ -25,31 +28,38 @@ internal class WorldTime : IDisposable {
 
     private readonly Task _statusTask;
     private readonly CancellationTokenSource _mainCancel;
-    private readonly CommandsSlash _commands;
     private readonly CommandsText _commandsTxt;
+    private readonly IServiceProvider _services;
 
     internal Configuration Config { get; }
-    internal DiscordShardedClient DiscordClient { get; }
-    internal Database Database { get; }
+    internal DiscordShardedClient DiscordClient => _services.GetRequiredService<DiscordShardedClient>();
+    internal Database Database => _services.GetRequiredService<Database>();
 
     public WorldTime(Configuration cfg, Database d) {
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         Program.Log(nameof(WorldTime), $"Version {ver!.ToString(3)} is starting...");
 
         Config = cfg;
-        Database = d;
 
-        // Configure client
-        DiscordClient = new DiscordShardedClient(new DiscordSocketConfig() {
+        // Configure client, set up command handling
+        var clientConf = new DiscordSocketConfig() {
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.RetryRatelimit,
             MessageCacheSize = 0, // disable message cache
             GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessages
-        });
+        };
+        _services = new ServiceCollection()
+            .AddSingleton(new DiscordShardedClient(clientConf))
+            .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordShardedClient>()))
+            .AddSingleton(d)
+            .BuildServiceProvider();
         DiscordClient.Log += DiscordClient_Log;
         DiscordClient.ShardReady += DiscordClient_ShardReady;
         DiscordClient.MessageReceived += DiscordClient_MessageReceived;
-        _commands = new CommandsSlash(this, Database);
+        var iasrv = _services.GetRequiredService<InteractionService>();
+        DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
+        iasrv.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
+
         _commandsTxt = new CommandsText(this, Database);
 
         // Start status reporting thread
@@ -59,6 +69,7 @@ internal class WorldTime : IDisposable {
     }
 
     public async Task StartAsync() {
+        await _services.GetRequiredService<InteractionService>().AddModulesAsync(Assembly.GetExecutingAssembly(), _services);
         await DiscordClient.LoginAsync(TokenType.Bot, Config.BotToken).ConfigureAwait(false);
         await DiscordClient.StartAsync().ConfigureAwait(false);
     }
@@ -148,7 +159,25 @@ internal class WorldTime : IDisposable {
         return Task.CompletedTask;
     }
 
-    private Task DiscordClient_ShardReady(DiscordSocketClient arg) => arg.SetGameAsync("/help");
+    private async Task DiscordClient_ShardReady(DiscordSocketClient arg) {
+        // TODO get rid of this eventually? or change it to something fun...
+        await arg.SetGameAsync("/help");
+
+#if !DEBUG
+        // Update slash/interaction commands
+        if (arg.ShardId == 0) {
+            await _services.GetRequiredService<InteractionService>().RegisterCommandsGloballyAsync();
+            Program.Log("Command registration", "Updated global command registration.");
+        }
+#else
+        // Debug: Register our commands locally instead, in each guild we're in
+        var iasrv = _services.GetRequiredService<InteractionService>();
+        foreach (var g in arg.Guilds) {
+            await iasrv.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
+            Program.Log("Command registration", $"Updated DEBUG command registration in guild {g.Id}.");
+        }
+#endif
+    }
 
     /// <summary>
     /// Non-specific handler for incoming events.
@@ -177,6 +206,56 @@ internal class WorldTime : IDisposable {
             // Event handler hangs if awaited normally or used with Task.Run
             await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
         }
+    }
+
+    const string InternalError = ":x: An unknown error occurred. If it persists, please notify the bot owner.";
+
+    // Slash command preparation and invocation
+    private async Task DiscordClient_InteractionCreated(SocketInteraction arg) {
+        var context = new ShardedInteractionContext(DiscordClient, arg);
+
+        try {
+            await _services.GetRequiredService<InteractionService>().ExecuteCommandAsync(context, _services);
+        } catch (Exception ex) {
+            Program.Log(nameof(DiscordClient_InteractionCreated), $"Unhandled exception. {ex}");
+            if (arg.Type == InteractionType.ApplicationCommand) {
+                if (arg.HasResponded) await arg.ModifyOriginalResponseAsync(prop => prop.Content = InternalError);
+                else await arg.RespondAsync(InternalError);
+            }
+        }
+    }
+
+    // Slash command logging and failed execution handling
+    private static async Task InteractionService_SlashCommandExecuted(SlashCommandInfo info, IInteractionContext context, IResult result) {
+        string sender;
+        if (context.Guild != null) {
+            sender = $"{context.Guild}!{context.User}";
+        } else {
+            sender = $"{context.User} in non-guild context";
+        }
+        var logresult = $"{(result.IsSuccess ? "Success" : "Fail")}: `/{info}` by {sender}.";
+
+        if (result.Error != null) {
+            // Additional log information with error detail
+            logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
+
+            // Specific responses to errors, if necessary
+            if (result.Error == InteractionCommandError.UnmetPrecondition) {
+                string errReply = result.ErrorReason switch {
+                    RequireGuildContextAttribute.Error => RequireGuildContextAttribute.Reply,
+                    _ => result.ErrorReason
+                };
+                await context.Interaction.RespondAsync(errReply, ephemeral: true);
+            } else {
+                // Generic error response
+                // TODO when implementing proper application error logging, see here
+                var ia = context.Interaction;
+                if (ia.HasResponded) await ia.ModifyOriginalResponseAsync(p => p.Content = InternalError);
+                else await ia.RespondAsync(InternalError);
+            }
+        }
+
+        Program.Log("Command", logresult);
     }
     #endregion
 }
