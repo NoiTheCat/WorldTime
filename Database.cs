@@ -8,7 +8,6 @@ namespace WorldTime;
 /// </summary>
 public class Database {
     private const string UserDatabase = "userdata";
-    private const string CutoffInterval = "INTERVAL '30 days'"; // TODO make configurable?
 
     private readonly string _connectionString;
 
@@ -49,7 +48,6 @@ public class Database {
 SELECT true FROM {UserDatabase}
 WHERE
     guild_id = @Gid
-    AND last_active >= now() - {CutoffInterval}
 LIMIT 1
 ";
         c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)guild.Id;
@@ -67,23 +65,6 @@ LIMIT 1
         c.CommandText = $"SELECT COUNT(DISTINCT zone) FROM {UserDatabase}";
         return (int)((long?)await c.ExecuteScalarAsync() ?? -1); // ExecuteScalarAsync returns a long here
     }
-
-    /// <summary>
-    /// Updates the last activity field for the specified guild user, if existing in the database.
-    /// </summary>
-    /// <returns>True if a value was updated, implying that the specified user exists in the database.</returns>
-    internal async Task<bool> UpdateLastActivityAsync(SocketGuildUser user) {
-        using var db = await OpenConnectionAsync().ConfigureAwait(false);
-        using var c = db.CreateCommand();
-        c.CommandText = $"UPDATE {UserDatabase} SET last_active = now() " +
-            "WHERE guild_id = @Gid AND user_id = @Uid";
-        c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)user.Guild.Id;
-        c.Parameters.Add("@Uid", NpgsqlDbType.Bigint).Value = (long)user.Id;
-        await c.PrepareAsync().ConfigureAwait(false);
-        return await c.ExecuteNonQueryAsync().ConfigureAwait(false) > 0;
-    }
-
-    // TODO remove data from users with very distant last activity. how long ago?
 
     /// <summary>
     /// Removes the specified user from the database.
@@ -132,7 +113,7 @@ LIMIT 1
     }
 
     /// <summary>
-    /// Retrieves all known user time zones for the given guild. Filtered only by last-seen time.
+    /// Retrieves all known user time zones for the given guild.
     /// Further filtering should be handled by the consumer.
     /// </summary>
     /// <returns>
@@ -145,7 +126,6 @@ LIMIT 1
 SELECT zone, user_id FROM {UserDatabase}
 WHERE
     guild_id = @Gid
-    AND last_active >= now() - {CutoffInterval}
 ORDER BY RANDOM() -- Randomize results for display purposes";
         c.Parameters.Add("@Gid", NpgsqlDbType.Bigint).Value = (long)guildId;
         await c.PrepareAsync().ConfigureAwait(false);
