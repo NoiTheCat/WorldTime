@@ -167,7 +167,7 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
     [SlashCommand("set-for", HelpSetFor)]
     public async Task CmdSetFor([Summary(description: "The user whose time zone to modify.")] SocketGuildUser user,
                                  [Summary(description: "The new time zone to set.")] string zone) {
-        if (!IsUserAdmin(user)) {
+        if (!IsUserAdmin((SocketGuildUser)Context.User)) {
             await RespondAsync(ErrNotAllowed, ephemeral: true).ConfigureAwait(false);
             return;
         }
@@ -194,7 +194,7 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
     [RequireGuildContext]
     [SlashCommand("remove-for", HelpRemoveFor)]
     public async Task CmdRemoveFor([Summary(description: "The user whose time zone to remove.")] SocketGuildUser user) {
-        if (!IsUserAdmin(user)) {
+        if (!IsUserAdmin((SocketGuildUser)Context.User)) {
             await RespondAsync(ErrNotAllowed, ephemeral: true).ConfigureAwait(false);
             return;
         }
