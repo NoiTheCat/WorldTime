@@ -12,7 +12,4 @@ public class UserEntry {
     public long UserId { get; set; }
     [Column("zone")]
     public string TimeZone { get; set; } = null!;
-    [Obsolete("No longer in use and should be removed promptly.")]
-    [Column("last_active")]
-    public DateTime LastUpdate { get; set; }
 }

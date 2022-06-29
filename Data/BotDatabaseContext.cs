@@ -29,7 +29,6 @@ public class BotDatabaseContext : DbContext {
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         modelBuilder.Entity<UserEntry>(entity => {
             entity.HasKey(e => new { e.GuildId, e.UserId }).HasName("userdata_pkey");
-            entity.Property(e => e.LastUpdate).HasDefaultValueSql("now()");
         });
     }
 
