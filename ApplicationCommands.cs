@@ -3,9 +3,9 @@ using NodaTime;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
+using WorldTime.Data;
 
 namespace WorldTime;
-
 public class ApplicationCommands : InteractionModuleBase<ShardedInteractionContext> {
     const string ErrNotAllowed = ":x: Only server moderators may use this command.";
 
@@ -30,7 +30,7 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
     private static readonly ReadOnlyDictionary<string, string> _tzNameMap;
 
     public DiscordShardedClient ShardedClient { get; set; } = null!;
-    public Database Database { get; set; } = null!;
+    public BotDatabaseContext DbContext { get; set; } = null!;
 
     static ApplicationCommands() {
         Dictionary<string, string> tzNameMap = new(StringComparer.OrdinalIgnoreCase);
@@ -42,7 +42,8 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
     public async Task CmdHelp() {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
         var guildct = ShardedClient.Guilds.Count;
-        var uniquetz = await Database.GetDistinctZoneCountAsync();
+        using var db = DbContext;
+        var uniquetz = db.GetDistinctZoneCount();
         await RespondAsync(embed: new EmbedBuilder() {
             Title = "Help & About",
             Description = $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
@@ -69,12 +70,19 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
             return;
         }
 
-        if (user != null) {
-            await CmdListUserAsync(user);
-            return;
+        if (user == null) {
+            // No parameter - full listing
+            await CmdListWithoutParamAsync();
+        } else {
+            // Has parameter - do single user listing
+            await CmdListWithUserParamAsync(user);
         }
+    }
 
-        var userlist = await Database.GetGuildZonesAsync(Context.Guild.Id);
+    private async Task CmdListWithoutParamAsync() {
+        // Called by CmdList
+        using var db = DbContext;
+        var userlist = db.GetGuildZones(Context.Guild.Id);
         if (userlist.Count == 0) {
             await RespondAsync(":x: Nothing to show. Register your time zones with the bot using the `/set` command.");
             return;
@@ -138,9 +146,10 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
         }
     }
 
-    private async Task CmdListUserAsync(SocketGuildUser parameter) {
-        // Not meant as a command handler - called by CmdList
-        var result = await Database.GetUserZoneAsync(parameter);
+    private async Task CmdListWithUserParamAsync(SocketGuildUser parameter) {
+        // Called by CmdList
+        using var db = DbContext;
+        var result = db.GetUserZone(parameter);
         if (result == null) {
             bool isself = Context.User.Id == parameter.Id;
             if (isself) await RespondAsync(":x: You do not have a time zone. Set it with `tz.set`.", ephemeral: true);
@@ -159,7 +168,8 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
             await RespondAsync(ErrInvalidZone, ephemeral: true);
             return;
         }
-        await Database.UpdateUserAsync((SocketGuildUser)Context.User, parsedzone);
+        using var db = DbContext;
+        db.UpdateUser((SocketGuildUser)Context.User, parsedzone);
         await RespondAsync($":white_check_mark: Your time zone has been set to **{parsedzone}**.");
     }
 
@@ -179,14 +189,16 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
             return;
         }
 
-        await Database.UpdateUserAsync(user, newtz).ConfigureAwait(false);
+        using var db = DbContext;
+        db.UpdateUser(user, newtz);
         await RespondAsync($":white_check_mark: Time zone for **{user}** set to **{newtz}**.");
     }
 
     [RequireGuildContext]
     [SlashCommand("remove", HelpRemove)]
     public async Task CmdRemove() {
-        var success = await Database.DeleteUserAsync((SocketGuildUser)Context.User);
+        using var db = DbContext;
+        var success = db.DeleteUser((SocketGuildUser)Context.User);
         if (success) await RespondAsync(":white_check_mark: Your zone has been removed.");
         else await RespondAsync(":x: You don't have a time zone set.");
     }
@@ -199,7 +211,8 @@ public class ApplicationCommands : InteractionModuleBase<ShardedInteractionConte
             return;
         }
 
-        if (await Database.DeleteUserAsync(user))
+        using var db = DbContext;
+        if (db.DeleteUser(user))
             await RespondAsync($":white_check_mark: Removed zone information for {user}.");
         else
             await RespondAsync($":white_check_mark: No time zone is set for {user}.");

@@ -18,16 +18,10 @@ class Program {
             Environment.Exit((int)ExitCodes.ConfigError);
         }
 
-        Database? d = null;
-        try {
-            d = new(cfg.DbConnectionString);
-        } catch (Npgsql.NpgsqlException e) {
-            Console.WriteLine("Error when attempting to connect to database: " + e.Message);
-            Environment.Exit((int)ExitCodes.DatabaseError);
-        }
+        Data.BotDatabaseContext.NpgsqlConnectionString = cfg.DbConnectionString;
 
         Console.CancelKeyPress += OnCancelKeyPressed;
-        _bot = new WorldTime(cfg, d);
+        _bot = new WorldTime(cfg);
         await _bot.StartAsync().ConfigureAwait(false);
 
         await Task.Delay(-1).ConfigureAwait(false);
