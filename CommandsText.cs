@@ -1,11 +1,13 @@
-﻿using NodaTime;
+﻿using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using WorldTime.Data;
 
 namespace WorldTime;
-
+[Obsolete("Text commands are deprecated and will be removed soon.")]
 internal class CommandsText {
 #if DEBUG
     public const string CommandPrefix = "tt.";
@@ -15,8 +17,10 @@ internal class CommandsText {
     delegate Task Command(SocketTextChannel channel, SocketGuildUser sender, SocketMessage message);
 
     private readonly Dictionary<string, Command> _commands;
-    private readonly Database _database;
+    private readonly IServiceProvider _services;
     private readonly WorldTime _instance;
+
+    private BotDatabaseContext Database => _services.GetRequiredService<BotDatabaseContext>();
 
     private static readonly Regex _userExplicit;
     private static readonly Regex _userMention;
@@ -38,9 +42,9 @@ internal class CommandsText {
         _tzNameMap = new(tzNameMap);
     }
 
-    public CommandsText(WorldTime inst, Database db) {
+    public CommandsText(WorldTime inst, IServiceProvider services) {
         _instance = inst;
-        _database = db;
+        _services = services;
         _commands = new(StringComparer.OrdinalIgnoreCase) {
             { "help", CmdHelp },
             { "list", CmdList },
@@ -60,7 +64,7 @@ internal class CommandsText {
 
         var msgsplit = message.Content.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         if (msgsplit.Length == 0 || msgsplit[0].Length < 4) return;
-        if (msgsplit[0].StartsWith(CommandPrefix, StringComparison.OrdinalIgnoreCase)) { // TODO add support for multiple prefixes?
+        if (msgsplit[0].StartsWith(CommandPrefix, StringComparison.OrdinalIgnoreCase)) {
             var cmdBase = msgsplit[0][3..];
             if (_commands.ContainsKey(cmdBase)) {
                 Program.Log("Command invoked", $"{channel.Guild.Name}/{message.Author} {message.Content}");
@@ -74,9 +78,10 @@ internal class CommandsText {
     }
 
     private async Task CmdHelp(SocketTextChannel channel, SocketGuildUser sender, SocketMessage message) {
+        using var db = Database;
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
         var guildct = _instance.DiscordClient.Guilds.Count;
-        var uniquetz = await _database.GetDistinctZoneCountAsync();
+        var uniquetz = db.GetDistinctZoneCount();
         await channel.SendMessageAsync(embed: new EmbedBuilder() {
             Color = new Color(0xe0f2f7),
             Title = "Help & About",
@@ -118,7 +123,8 @@ internal class CommandsText {
                 return;
             }
 
-            var result = await _database.GetUserZoneAsync(usersearch).ConfigureAwait(false);
+            using var db = Database;
+            var result = db.GetUserZone(usersearch);
             if (result == null) {
                 bool isself = sender.Id == usersearch.Id;
                 if (isself) await channel.SendMessageAsync(":x: You do not have a time zone. Set it with `tz.set`.").ConfigureAwait(false);
@@ -130,7 +136,8 @@ internal class CommandsText {
             await channel.SendMessageAsync(embed: new EmbedBuilder().WithDescription(resulttext).Build()).ConfigureAwait(false);
         } else {
             // Does not have parameter - build full list
-            var userlist = await _database.GetGuildZonesAsync(channel.Guild.Id).ConfigureAwait(false);
+            using var db = Database;
+            var userlist = db.GetGuildZones(channel.Guild.Id);
             if (userlist.Count == 0) {
                 await channel.SendMessageAsync(":x: Nothing to show. " +
                     $"To register time zones with the bot, use the `{CommandPrefix}set` command.").ConfigureAwait(false);
@@ -196,7 +203,8 @@ internal class CommandsText {
             await channel.SendMessageAsync(ErrInvalidZone).ConfigureAwait(false);
             return;
         }
-        await _database.UpdateUserAsync(sender, input).ConfigureAwait(false);
+        using var db = Database;
+        db.UpdateUser(sender, input);
         await channel.SendMessageAsync($":white_check_mark: Your time zone has been set to **{input}**.").ConfigureAwait(false);
     }
 
@@ -229,12 +237,14 @@ internal class CommandsText {
             return;
         }
 
-        await _database.UpdateUserAsync(targetuser, newtz).ConfigureAwait(false);
+        using var db = Database;
+        db.UpdateUser(targetuser, newtz);
         await channel.SendMessageAsync($":white_check_mark: Time zone for **{targetuser}** set to **{newtz}**.").ConfigureAwait(false);
     }
 
     private async Task CmdRemove(SocketTextChannel channel, SocketGuildUser sender, SocketMessage message) {
-        var success = await _database.DeleteUserAsync(sender).ConfigureAwait(false);
+        using var db = Database;
+        var success = db.DeleteUser(sender);
         if (success) await channel.SendMessageAsync(":white_check_mark: Your zone has been removed.").ConfigureAwait(false);
         else await channel.SendMessageAsync(":x: You don't have a time zone set.");
     }
@@ -259,7 +269,8 @@ internal class CommandsText {
             return;
         }
 
-        await _database.DeleteUserAsync(targetuser).ConfigureAwait(false);
+        using var db = Database;
+        db.DeleteUser(targetuser);
         await channel.SendMessageAsync($":white_check_mark: Removed zone information for {targetuser}.");
     }
 
@@ -346,7 +357,6 @@ internal class CommandsText {
     /// </summary>
     private static bool IsUserAdmin(SocketGuildUser user)
         => user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
-    // TODO port modrole feature from BB, implement in here
 
     /// <summary>
     /// Checks if the member cache for the specified guild needs to be filled, and sends a request if needed.

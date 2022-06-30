@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using System.Text;
+using WorldTime.Data;
 
 namespace WorldTime;
 
@@ -33,10 +34,9 @@ internal class WorldTime : IDisposable {
 
     internal Configuration Config { get; }
     internal DiscordShardedClient DiscordClient => _services.GetRequiredService<DiscordShardedClient>();
-    internal Database Database => _services.GetRequiredService<Database>();
 
-    public WorldTime(Configuration cfg, Database d) {
-        var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+    public WorldTime(Configuration cfg) {
+        var ver = Assembly.GetExecutingAssembly().GetName().Version;
         Program.Log(nameof(WorldTime), $"Version {ver!.ToString(3)} is starting...");
 
         Config = cfg;
@@ -51,7 +51,7 @@ internal class WorldTime : IDisposable {
         _services = new ServiceCollection()
             .AddSingleton(new DiscordShardedClient(clientConf))
             .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordShardedClient>()))
-            .AddSingleton(d)
+            .AddTransient(typeof(BotDatabaseContext))
             .BuildServiceProvider();
         DiscordClient.Log += DiscordClient_Log;
         DiscordClient.ShardReady += DiscordClient_ShardReady;
@@ -60,7 +60,7 @@ internal class WorldTime : IDisposable {
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
         iasrv.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
 
-        _commandsTxt = new CommandsText(this, Database);
+        _commandsTxt = new CommandsText(this, _services);
 
         // Start status reporting thread
         _mainCancel = new CancellationTokenSource();
@@ -189,10 +189,12 @@ internal class WorldTime : IDisposable {
 
         // Proactively fill guild user cache if the bot has any data for the respective guild
         // Can skip an extra query if the last_seen update is known to have been successful, otherwise query for any users
-        var guild = channel.Guild;
-        if (!guild.HasAllMembers && await Database.HasAnyAsync(guild)) {
-            // Event handler hangs if awaited normally or used with Task.Run
-            await Task.Factory.StartNew(guild.DownloadUsersAsync);
+        if (!channel.Guild.HasAllMembers) {
+            using var db = _services.GetRequiredService<BotDatabaseContext>();
+            if (db.HasAnyUsers(channel.Guild)) {
+                // Event handler hangs if awaited normally or used with Task.Run
+                await Task.Factory.StartNew(channel.Guild.DownloadUsersAsync);
+            }
         }
     }
 
