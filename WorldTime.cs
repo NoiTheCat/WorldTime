@@ -46,7 +46,9 @@ internal class WorldTime : IDisposable {
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.RetryRatelimit,
             MessageCacheSize = 0, // disable message cache
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessages
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessages,
+            SuppressUnknownDispatchWarnings = true,
+            LogGatewayIntentWarnings = false
         };
         _services = new ServiceCollection()
             .AddSingleton(new DiscordShardedClient(clientConf))
@@ -132,10 +134,7 @@ internal class WorldTime : IDisposable {
     private Task DiscordClient_Log(LogMessage arg) {
         // Suppress certain messages
         if (arg.Message != null) {
-            // These warnings appear often as of Discord.Net v3...
-            if (arg.Message.StartsWith("Unknown Dispatch ") || arg.Message.StartsWith("Unknown Channel")) return Task.CompletedTask;
-            switch (arg.Message) // Connection status messages replaced by ShardManager's output
-            {
+            switch (arg.Message) { // Connection status messages replaced by ShardManager's output
                 case "Connecting":
                 case "Connected":
                 case "Ready":
@@ -146,7 +145,6 @@ internal class WorldTime : IDisposable {
                 case "Discord.WebSocket.GatewayReconnectException: Server requested a reconnect":
                     return Task.CompletedTask;
             }
-
             Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message}");
         }
 
