@@ -67,6 +67,7 @@ internal class CommandsText {
         if (msgsplit[0].StartsWith(CommandPrefix, StringComparison.OrdinalIgnoreCase)) {
             var cmdBase = msgsplit[0][3..];
             if (_commands.ContainsKey(cmdBase)) {
+                NoiTheCat.TextCommandRemovalWarning.Intercept(message, channel.Guild.Id);
                 Program.Log("Command invoked", $"{channel.Guild.Name}/{message.Author} {message.Content}");
                 try {
                     await _commands[cmdBase](channel, (SocketGuildUser)message.Author, message).ConfigureAwait(false);
