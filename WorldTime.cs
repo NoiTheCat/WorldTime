@@ -170,10 +170,14 @@ internal class WorldTime : IDisposable {
         }
 #else
         // Debug: Register our commands locally instead, in each guild we're in
-        var iasrv = _services.GetRequiredService<InteractionService>();
-        foreach (var g in arg.Guilds) {
-            await iasrv.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
-            Program.Log("Command registration", $"Updated DEBUG command registration in guild {g.Id}.");
+        if (arg.Guilds.Count > 5) {
+            Program.Log("Command registration", "Are you debugging in production?! Skipping DEBUG command registration.");
+        } else {
+            var iasrv = _services.GetRequiredService<InteractionService>();
+            foreach (var g in arg.Guilds) {
+                await iasrv.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
+                Program.Log("Command registration", $"Updated DEBUG command registration in guild {g.Id}.");
+            }
         }
 #endif
     }
