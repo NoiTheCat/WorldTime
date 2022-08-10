@@ -1,29 +1,26 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace WorldTime.Data;
 public class BotDatabaseContext : DbContext {
-    private static string? _npgsqlConnectionString;
-    internal static string NpgsqlConnectionString {
-#if DEBUG
-        get {
-            if (_npgsqlConnectionString != null) return _npgsqlConnectionString;
-            Program.Log(nameof(BotDatabaseContext), "Using hardcoded connection string!");
-            return _npgsqlConnectionString ?? "Host=localhost;Username=worldtime;Password=wt";
-        }
-#else
-        get => _npgsqlConnectionString!;
-#endif
-        set => _npgsqlConnectionString ??= value;
+    private static readonly string _connectionString;
+
+    static BotDatabaseContext() {
+        // Get our own config loaded just for the SQL stuff
+        var conf = new Configuration();
+        _connectionString = new NpgsqlConnectionStringBuilder() {
+            Host = conf.SqlHost ?? "localhost", // default to localhost
+            Database = conf.SqlDatabase,
+            Username = conf.SqlUsername,
+            Password = conf.SqlPassword
+        }.ToString();
     }
 
     public DbSet<UserEntry> UserEntries { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
          => optionsBuilder
-            .UseNpgsql(NpgsqlConnectionString)
-#if DEBUG
-            .LogTo((string line) => Program.Log("EF", line), Microsoft.Extensions.Logging.LogLevel.Information)
-#endif
+            .UseNpgsql(_connectionString)
             .UseSnakeCaseNamingConvention();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {

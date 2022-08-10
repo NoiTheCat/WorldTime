@@ -31,6 +31,7 @@ internal class WorldTime : IDisposable {
     private readonly CancellationTokenSource _mainCancel;
     private readonly CommandsText _commandsTxt;
     private readonly IServiceProvider _services;
+    private readonly HashSet<ulong> _aotUserDownloadChecked = new();
 
     internal Configuration Config { get; }
     internal DiscordShardedClient DiscordClient => _services.GetRequiredService<DiscordShardedClient>();
@@ -186,7 +187,9 @@ internal class WorldTime : IDisposable {
         if (message.Channel is not SocketTextChannel channel) return;
 
         // Proactively fill guild user cache if the bot has any data for the respective guild
-        // Can skip an extra query if the last_seen update is known to have been successful, otherwise query for any users
+        lock (_aotUserDownloadChecked) {
+            if (!_aotUserDownloadChecked.Add(channel.Guild.Id)) return; // ...once. Just once. Not all the time.
+        }
         if (!channel.Guild.HasAllMembers) {
             using var db = _services.GetRequiredService<BotDatabaseContext>();
             if (db.HasAnyUsers(channel.Guild)) {
