@@ -29,7 +29,6 @@ internal class WorldTime : IDisposable {
 
     private readonly Task _statusTask;
     private readonly CancellationTokenSource _mainCancel;
-    private readonly CommandsText _commandsTxt;
     private readonly IServiceProvider _services;
 
     internal Configuration Config { get; }
@@ -59,8 +58,6 @@ internal class WorldTime : IDisposable {
         var iasrv = _services.GetRequiredService<InteractionService>();
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
         iasrv.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
-
-        _commandsTxt = new CommandsText(this, _services);
 
         // Start status reporting thread
         _mainCancel = new CancellationTokenSource();
@@ -160,9 +157,6 @@ internal class WorldTime : IDisposable {
     }
 
     private async Task DiscordClient_ShardReady(DiscordSocketClient arg) {
-        // TODO get rid of this eventually? or change it to something fun...
-        await arg.SetGameAsync("/help");
-
 #if !DEBUG
         // Update slash/interaction commands
         if (arg.ShardId == 0) {
