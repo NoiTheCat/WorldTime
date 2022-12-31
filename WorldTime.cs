@@ -16,22 +16,15 @@ internal class WorldTime : IDisposable {
     /// Number of seconds between each time the status task runs, in seconds.
     /// </summary>
 #if DEBUG
-    private const int StatusInterval = 20;
+    internal const int StatusInterval = 20;
 #else
-    private const int StatusInterval = 300;
+    internal const int StatusInterval = 300;
 #endif
 
-    /// <summary>
-    /// Number of concurrent shard startups to happen on each check.
-    /// This value is also used in <see cref="DataRetention"/>.
-    /// </summary>
-    public const int MaxConcurrentOperations = 5;
-
     private readonly Task _statusTask;
-    private readonly CancellationTokenSource _mainCancel;
-    private readonly CommandsText _commandsTxt;
+    private readonly CancellationTokenSource _statusCancel;
     private readonly IServiceProvider _services;
-    private readonly HashSet<ulong> _aotUserDownloadChecked = new();
+    private readonly BackgroundUserListLoad _bgFetch;
 
     internal Configuration Config { get; }
     internal DiscordShardedClient DiscordClient => _services.GetRequiredService<DiscordShardedClient>();
@@ -47,7 +40,7 @@ internal class WorldTime : IDisposable {
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.RetryRatelimit,
             MessageCacheSize = 0, // disable message cache
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessages,
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
             SuppressUnknownDispatchWarnings = true,
             LogGatewayIntentWarnings = false
         };
@@ -58,17 +51,16 @@ internal class WorldTime : IDisposable {
             .BuildServiceProvider();
         DiscordClient.Log += DiscordClient_Log;
         DiscordClient.ShardReady += DiscordClient_ShardReady;
-        DiscordClient.MessageReceived += DiscordClient_MessageReceived;
         var iasrv = _services.GetRequiredService<InteractionService>();
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
         iasrv.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
 
-        _commandsTxt = new CommandsText(this, _services);
-
         // Start status reporting thread
-        _mainCancel = new CancellationTokenSource();
-        _statusTask = Task.Factory.StartNew(StatusLoop, _mainCancel.Token,
+        _statusCancel = new CancellationTokenSource();
+        _statusTask = Task.Factory.StartNew(StatusLoop, _statusCancel.Token,
                                               TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        _bgFetch = new(_services);
     }
 
     public async Task StartAsync() {
@@ -78,26 +70,24 @@ internal class WorldTime : IDisposable {
     }
 
     public void Dispose() {
-        _mainCancel.Cancel();
+        _statusCancel.Cancel();
         _statusTask.Wait(10000);
         if (!_statusTask.IsCompleted)
             Program.Log(nameof(WorldTime), "Warning: Main thread did not cleanly finish up in time. Continuing...");
 
-        _mainCancel.Cancel();
-        _statusTask.Wait(5000);
-        _mainCancel.Dispose();
+        _statusCancel.Dispose();
 
         Program.Log(nameof(WorldTime), $"Uptime: {Program.BotUptime}");
     }
 
     private async Task StatusLoop() {
         try {
-            await Task.Delay(30000, _mainCancel.Token).ConfigureAwait(false); // initial 30 second delay
-            while (!_mainCancel.IsCancellationRequested) {
+            await Task.Delay(30000, _statusCancel.Token).ConfigureAwait(false); // initial 30 second delay
+            while (!_statusCancel.IsCancellationRequested) {
                 Program.Log(nameof(WorldTime), $"Bot uptime: {Program.BotUptime}");
                 
-                await PeriodicReport(DiscordClient.CurrentUser.Id, DiscordClient.Guilds.Count, _mainCancel.Token).ConfigureAwait(false);
-                await Task.Delay(StatusInterval * 1000, _mainCancel.Token).ConfigureAwait(false);
+                await PeriodicReport(DiscordClient.CurrentUser.Id, DiscordClient.Guilds.Count, _statusCancel.Token).ConfigureAwait(false);
+                await Task.Delay(StatusInterval * 1000, _statusCancel.Token).ConfigureAwait(false);
             }
         } catch (TaskCanceledException) { }
     }
@@ -159,9 +149,6 @@ internal class WorldTime : IDisposable {
     }
 
     private async Task DiscordClient_ShardReady(DiscordSocketClient arg) {
-        // TODO get rid of this eventually? or change it to something fun...
-        await arg.SetGameAsync("/help");
-
 #if !DEBUG
         // Update slash/interaction commands
         if (arg.ShardId == 0) {
@@ -180,27 +167,6 @@ internal class WorldTime : IDisposable {
             }
         }
 #endif
-    }
-
-    /// <summary>
-    /// Non-specific handler for incoming events.
-    /// </summary>
-    private async Task DiscordClient_MessageReceived(SocketMessage message) {
-        if (message.Author.IsWebhook) return;
-        if (message.Type != MessageType.Default) return;
-        if (message.Channel is not SocketTextChannel channel) return;
-
-        // Proactively fill guild user cache if the bot has any data for the respective guild
-        lock (_aotUserDownloadChecked) {
-            if (!_aotUserDownloadChecked.Add(channel.Guild.Id)) return; // ...once. Just once. Not all the time.
-        }
-        if (!channel.Guild.HasAllMembers) {
-            using var db = _services.GetRequiredService<BotDatabaseContext>();
-            if (db.HasAnyUsers(channel.Guild)) {
-                // Event handler hangs if awaited normally or used with Task.Run
-                await Task.Factory.StartNew(channel.Guild.DownloadUsersAsync);
-            }
-        }
     }
 
     const string InternalError = ":x: An unknown error occurred. If it persists, please notify the bot owner.";
