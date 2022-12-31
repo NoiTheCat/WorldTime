@@ -7,7 +7,6 @@ using System.Text;
 using WorldTime.Data;
 
 namespace WorldTime;
-
 /// <summary>
 /// Main class for the program. Configures the client on start and occasionally prints status information.
 /// </summary>
@@ -203,7 +202,7 @@ internal class WorldTime : IDisposable {
             // Specific responses to errors, if necessary
             if (result.Error == InteractionCommandError.UnmetPrecondition) {
                 string errReply = result.ErrorReason switch {
-                    RequireGuildContextAttribute.Error => RequireGuildContextAttribute.Reply,
+                    Commands.RequireGuildContextAttribute.Error => Commands.RequireGuildContextAttribute.Reply,
                     _ => result.ErrorReason
                 };
                 await context.Interaction.RespondAsync(errReply, ephemeral: true);
