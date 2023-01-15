@@ -74,13 +74,6 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
     }
 
     /// <summary>
-    /// Checks if the given user can be considered a guild admin ('Manage Server' is set).
-    /// </summary>
-    // TODO replace this with a precondition, or there's also a new permission scheme going around?
-    protected static bool IsUserAdmin(SocketGuildUser user)
-        => user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
-
-    /// <summary>
     /// Checks if the member cache for the specified guild needs to be filled, and sends a request if needed.
     /// </summary>
     /// <remarks>

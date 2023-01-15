@@ -10,16 +10,15 @@ public class UserCommands : CommandsBase {
         + $"`/remove` - {HelpRemove}";
     const string EmbedHelpField2 =
         $"`/config use-12hour` - {ConfigCommands.HelpUse12}\n"
-        + $"`/set-for` - {HelpSetFor}\n"
-        + $"`/remove-for` - {HelpRemoveFor}";
+        + $"`/set-for` - {ConfigCommands.HelpSetFor}\n"
+        + $"`/remove-for` - {ConfigCommands.HelpRemoveFor}";
 
     #region Help strings
     const string HelpHelp = "Displays a list of available bot commands.";
     const string HelpList = "Shows the current time for all recently active known users.";
     const string HelpSet = "Adds or updates your time zone to the bot.";
-    const string HelpSetFor = "Sets/updates time zone for a given user.";
     const string HelpRemove = "Removes your time zone information from this bot.";
-    const string HelpRemoveFor = "Removes time zone for a given user.";
+    
     #endregion
 
     [SlashCommand("help", HelpHelp)]
@@ -46,8 +45,8 @@ public class UserCommands : CommandsBase {
         ).Build());
     }
 
-    [RequireGuildContext]
     [SlashCommand("list", HelpList)]
+    [EnabledInDm(false)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
         if (!await AreUsersDownloadedAsync(Context.Guild)) {
             await RespondAsync(ErrNoUserCache, ephemeral: true);
@@ -149,6 +148,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("set", HelpSet)]
+    [EnabledInDm(false)]
     public async Task CmdSet([Summary(description: "The new time zone to set.")]string zone) {
         var parsedzone = ParseTimeZone(zone);
         if (parsedzone == null) {
@@ -160,48 +160,12 @@ public class UserCommands : CommandsBase {
         await RespondAsync($":white_check_mark: Your time zone has been set to **{parsedzone}**.");
     }
 
-    [RequireGuildContext]
-    [SlashCommand("set-for", HelpSetFor)]
-    public async Task CmdSetFor([Summary(description: "The user whose time zone to modify.")] SocketGuildUser user,
-                                 [Summary(description: "The new time zone to set.")] string zone) {
-        if (!IsUserAdmin((SocketGuildUser)Context.User)) {
-            await RespondAsync(ErrNotAllowed, ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        // Extract parameters
-        var newtz = ParseTimeZone(zone);
-        if (newtz == null) {
-            await RespondAsync(ErrInvalidZone);
-            return;
-        }
-
-        using var db = DbContext;
-        db.UpdateUser(user, newtz);
-        await RespondAsync($":white_check_mark: Time zone for **{user}** set to **{newtz}**.");
-    }
-
-    [RequireGuildContext]
     [SlashCommand("remove", HelpRemove)]
+    [EnabledInDm(false)]
     public async Task CmdRemove() {
         using var db = DbContext;
         var success = db.DeleteUser((SocketGuildUser)Context.User);
         if (success) await RespondAsync(":white_check_mark: Your zone has been removed.");
         else await RespondAsync(":x: You don't have a time zone set.");
-    }
-
-    [RequireGuildContext]
-    [SlashCommand("remove-for", HelpRemoveFor)]
-    public async Task CmdRemoveFor([Summary(description: "The user whose time zone to remove.")] SocketGuildUser user) {
-        if (!IsUserAdmin((SocketGuildUser)Context.User)) {
-            await RespondAsync(ErrNotAllowed, ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        using var db = DbContext;
-        if (db.DeleteUser(user))
-            await RespondAsync($":white_check_mark: Removed zone information for {user}.");
-        else
-            await RespondAsync($":white_check_mark: No time zone is set for {user}.");
     }
 }

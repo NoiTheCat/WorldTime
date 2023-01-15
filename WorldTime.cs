@@ -199,20 +199,11 @@ internal class WorldTime : IDisposable {
             // Additional log information with error detail
             logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
 
-            // Specific responses to errors, if necessary
-            if (result.Error == InteractionCommandError.UnmetPrecondition) {
-                string errReply = result.ErrorReason switch {
-                    Commands.RequireGuildContextAttribute.Error => Commands.RequireGuildContextAttribute.Reply,
-                    _ => result.ErrorReason
-                };
-                await context.Interaction.RespondAsync(errReply, ephemeral: true);
-            } else {
-                // Generic error response
-                // TODO when implementing proper application error logging, see here
-                var ia = context.Interaction;
-                if (ia.HasResponded) await ia.ModifyOriginalResponseAsync(p => p.Content = InternalError);
-                else await ia.RespondAsync(InternalError);
-            }
+            // Generic error response
+            // TODO when implementing proper application error logging, see here
+            var ia = context.Interaction;
+            if (ia.HasResponded) await ia.ModifyOriginalResponseAsync(p => p.Content = InternalError);
+            else await ia.RespondAsync(InternalError);
         }
 
         Program.Log("Command", logresult);
