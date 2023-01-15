@@ -17,6 +17,7 @@ public class BotDatabaseContext : DbContext {
     }
 
     public DbSet<UserEntry> UserEntries { get; set; } = null!;
+    public DbSet<GuildConfiguration> GuildSettings { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
          => optionsBuilder
@@ -24,9 +25,8 @@ public class BotDatabaseContext : DbContext {
             .UseSnakeCaseNamingConvention();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
-        modelBuilder.Entity<UserEntry>(entity => {
-            entity.HasKey(e => new { e.GuildId, e.UserId }).HasName("userdata_pkey");
-        });
+        modelBuilder.Entity<UserEntry>().HasKey(e => new { e.GuildId, e.UserId }).HasName("userdata_pkey");
+        modelBuilder.Entity<GuildConfiguration>().Property(p => p.Use12HourTime).HasDefaultValue(false);
     }
 
     #region Helper methods / abstractions

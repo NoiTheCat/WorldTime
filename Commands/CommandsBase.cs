@@ -25,16 +25,20 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
 
     /// <summary>
     /// Returns a string displaying the current time in the given time zone.
-    /// The result begins with four numbers for sorting purposes. Must be trimmed before output.
+    /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
     /// </summary>
-    protected static string TzPrint(string zone) {
+    protected static string TzPrint(string zone, bool use12hr) {
         var tzdb = DateTimeZoneProviders.Tzdb;
         DateTimeZone tz = tzdb.GetZoneOrNull(zone)!;
         if (tz == null) throw new Exception("Encountered unknown time zone: " + zone);
 
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
-        var sortpfx = now.ToString("MMdd", DateTimeFormatInfo.InvariantInfo);
-        var fullstr = now.ToString("dd'-'MMM' 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
+        var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
+        string fullstr;
+        if (use12hr) {
+            var ap = now.ToString("tt", DateTimeFormatInfo.InvariantInfo).ToLowerInvariant();
+            fullstr = now.ToString($"MMM' 'dd', 'hh':'mm'{ap} 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
+        } else fullstr = now.ToString("dd'-'MMM', 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
         return $"{sortpfx}● `{fullstr}`";
     }
 

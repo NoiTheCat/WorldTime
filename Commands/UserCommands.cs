@@ -2,12 +2,16 @@
 using System.Text;
 
 namespace WorldTime.Commands;
-public class ApplicationCommands : CommandsBase {
-    const string EmbedHelpField1 = $"`/help` - {HelpHelp}\n"
+public class UserCommands : CommandsBase {
+    const string EmbedHelpField1 =
+        $"`/help` - {HelpHelp}\n"
         + $"`/list` - {HelpList}\n"
         + $"`/set` - {HelpSet}\n"
         + $"`/remove` - {HelpRemove}";
-    const string EmbedHelpField2 = $"`/set-for` - {HelpSetFor}\n`/remove-for` - {HelpRemoveFor}";
+    const string EmbedHelpField2 =
+        $"`/config use-12hour` - {ConfigCommands.HelpUse12}\n"
+        + $"`/set-for` - {HelpSetFor}\n"
+        + $"`/remove-for` - {HelpRemoveFor}";
 
     #region Help strings
     const string HelpHelp = "Displays a list of available bot commands.";
@@ -67,23 +71,25 @@ public class ApplicationCommands : CommandsBase {
             await RespondAsync(":x: Nothing to show. Register your time zones with the bot using the `/set` command.");
             return;
         }
+        
         // Order times by popularity to limit how many are shown, group by printed name
         var sortedlist = new SortedDictionary<string, List<ulong>>();
+        var ampm = db.GuildSettings.Where(s => s.GuildId == Context.Guild.Id).SingleOrDefault()?.Use12HourTime ?? false;
         foreach ((string area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count).Take(20)) {
             // Filter further to top 20 distinct timezones, even if they are not displayed in the final result
-            var areaprint = TzPrint(area);
+            var areaprint = TzPrint(area, ampm);
             if (!sortedlist.ContainsKey(areaprint)) sortedlist.Add(areaprint, new List<ulong>());
             sortedlist[areaprint].AddRange(users);
         }
 
         const int MaxSingleLineLength = 750;
-        const int MaxSingleOutputLength = 900;
+        const int MaxSingleOutputLength = 3000;
 
         // Build zone listings with users
         var outputlines = new List<string>();
         foreach ((string area, List<ulong> users) in sortedlist) {
             var buffer = new StringBuilder();
-            buffer.Append(area[4..] + ": ");
+            buffer.Append(area[6..] + ": ");
             bool empty = true;
             foreach (var userid in users) {
                 var userinstance = Context.Guild.GetUser(userid);
@@ -137,7 +143,8 @@ public class ApplicationCommands : CommandsBase {
             return;
         }
 
-        var resulttext = TzPrint(result)[4..] + ": " + FormatName(parameter);
+        var ampm = db.GuildSettings.Where(s => s.GuildId == Context.Guild.Id).SingleOrDefault()?.Use12HourTime ?? false;
+        var resulttext = TzPrint(result, ampm)[6..] + ": " + FormatName(parameter);
         await RespondAsync(embed: new EmbedBuilder().WithDescription(resulttext).Build());
     }
 
