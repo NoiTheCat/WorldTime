@@ -9,16 +9,14 @@ class Program {
     /// </summary>
     public static string BotUptime => (DateTimeOffset.UtcNow - _botStartTime).ToString("d' days, 'hh':'mm':'ss");
 
-    static async Task Main(string[] args) {
+    static async Task Main() {
         Configuration? cfg = null;
         try {
-            cfg = new Configuration(args);
+            cfg = new Configuration();
         } catch (Exception ex) {
             Console.WriteLine(ex);
             Environment.Exit((int)ExitCodes.ConfigError);
         }
-
-        Data.BotDatabaseContext.NpgsqlConnectionString = cfg.DbConnectionString;
 
         Console.CancelKeyPress += OnCancelKeyPressed;
         _bot = new WorldTime(cfg);
@@ -31,10 +29,10 @@ class Program {
     /// Sends a formatted message to console.
     /// </summary>
     public static void Log(string source, string message) {
-        var ts = DateTime.UtcNow;
+        var ts = DateTime.Now;
         var ls = new string[] { "\r\n", "\n" };
         foreach (var item in message.Split(ls, StringSplitOptions.None))
-            Console.WriteLine($"{ts:u} [{source}] {item}");
+            Console.WriteLine($"{ts:s} [{source}] {item}");
     }
 
     private static void OnCancelKeyPressed(object? sender, ConsoleCancelEventArgs e) {

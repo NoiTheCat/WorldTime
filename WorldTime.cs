@@ -7,7 +7,6 @@ using System.Text;
 using WorldTime.Data;
 
 namespace WorldTime;
-
 /// <summary>
 /// Main class for the program. Configures the client on start and occasionally prints status information.
 /// </summary>
@@ -125,10 +124,7 @@ internal class WorldTime : IDisposable {
     private Task DiscordClient_Log(LogMessage arg) {
         // Suppress certain messages
         if (arg.Message != null) {
-            // These warnings appear often as of Discord.Net v3...
-            if (arg.Message.StartsWith("Unknown Dispatch ") || arg.Message.StartsWith("Unknown Channel")) return Task.CompletedTask;
-            switch (arg.Message) // Connection status messages replaced by ShardManager's output
-            {
+            switch (arg.Message) { // Connection status messages replaced by ShardManager's output
                 case "Connecting":
                 case "Connected":
                 case "Ready":
@@ -139,7 +135,6 @@ internal class WorldTime : IDisposable {
                 case "Discord.WebSocket.GatewayReconnectException: Server requested a reconnect":
                     return Task.CompletedTask;
             }
-
             Program.Log("Discord.Net", $"{arg.Severity}: {arg.Message}");
         }
 
@@ -161,10 +156,14 @@ internal class WorldTime : IDisposable {
         }
 #else
         // Debug: Register our commands locally instead, in each guild we're in
-        var iasrv = _services.GetRequiredService<InteractionService>();
-        foreach (var g in arg.Guilds) {
-            await iasrv.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
-            Program.Log("Command registration", $"Updated DEBUG command registration in guild {g.Id}.");
+        if (arg.Guilds.Count > 5) {
+            Program.Log("Command registration", "Are you debugging in production?! Skipping DEBUG command registration.");
+        } else {
+            var iasrv = _services.GetRequiredService<InteractionService>();
+            foreach (var g in arg.Guilds) {
+                await iasrv.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
+                Program.Log("Command registration", $"Updated DEBUG command registration in guild {g.Id}.");
+            }
         }
 #endif
     }
@@ -200,20 +199,11 @@ internal class WorldTime : IDisposable {
             // Additional log information with error detail
             logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
 
-            // Specific responses to errors, if necessary
-            if (result.Error == InteractionCommandError.UnmetPrecondition) {
-                string errReply = result.ErrorReason switch {
-                    RequireGuildContextAttribute.Error => RequireGuildContextAttribute.Reply,
-                    _ => result.ErrorReason
-                };
-                await context.Interaction.RespondAsync(errReply, ephemeral: true);
-            } else {
-                // Generic error response
-                // TODO when implementing proper application error logging, see here
-                var ia = context.Interaction;
-                if (ia.HasResponded) await ia.ModifyOriginalResponseAsync(p => p.Content = InternalError);
-                else await ia.RespondAsync(InternalError);
-            }
+            // Generic error response
+            // TODO when implementing proper application error logging, see here
+            var ia = context.Interaction;
+            if (ia.HasResponded) await ia.ModifyOriginalResponseAsync(p => p.Content = InternalError);
+            else await ia.RespondAsync(InternalError);
         }
 
         Program.Log("Command", logresult);
