@@ -1,8 +1,9 @@
+---
+layout: default
+title: Documentation
+---
 # World Time
 
-* Info: https://discord.bots.gg/bots/447266583459528715
-
-## A social time zone reference tool!
 World Time is a simple bot that acts as a quick reference for checking the current time and day for the users in your server. To use it is as simple as having your users individually add their time zone, and anyone is then free to look up the full list of current times, or those of individual users.
 
 #### Why might this be useful?
