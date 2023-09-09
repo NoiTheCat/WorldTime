@@ -70,7 +70,7 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
             if (user.Nickname != null) {
                 return $"**{escapeFormattingCharacters(user.Nickname)}** ({escapeFormattingCharacters(user.ToString())})";
             }
-            return user.ToString();
+            return escapeFormattingCharacters(user.ToString());
         } else {
             var username = escapeFormattingCharacters(user.Username);
             if (user.Nickname != null) {
