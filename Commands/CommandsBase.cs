@@ -66,11 +66,18 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
             return result.ToString();
         }
 
-        var username = escapeFormattingCharacters(user.Username);
-        if (user.Nickname != null) {
-            return $"**{escapeFormattingCharacters(user.Nickname)}** ({username}#{user.Discriminator})";
+        if (user.DiscriminatorValue == 0) {
+            if (user.Nickname != null) {
+                return $"**{escapeFormattingCharacters(user.Nickname)}** ({escapeFormattingCharacters(user.ToString())})";
+            }
+            return user.ToString();
+        } else {
+            var username = escapeFormattingCharacters(user.Username);
+            if (user.Nickname != null) {
+                return $"**{escapeFormattingCharacters(user.Nickname)}** ({username}#{user.Discriminator})";
+            }
+            return $"**{username}**#{user.Discriminator}";
         }
-        return $"**{username}**#{user.Discriminator}";
     }
 
     /// <summary>

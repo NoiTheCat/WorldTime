@@ -41,7 +41,8 @@ internal class WorldTime : IDisposable {
             MessageCacheSize = 0, // disable message cache
             GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
             SuppressUnknownDispatchWarnings = true,
-            LogGatewayIntentWarnings = false
+            LogGatewayIntentWarnings = false,
+            FormatUsersInBidirectionalUnicode = false
         };
         _services = new ServiceCollection()
             .AddSingleton(new DiscordShardedClient(clientConf))
