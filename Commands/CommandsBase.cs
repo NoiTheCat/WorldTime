@@ -58,7 +58,7 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
         static string escapeFormattingCharacters(string input) {
             var result = new StringBuilder();
             foreach (var c in input) {
-                if (c is '\\' or '_' or '~' or '*' or '@') {
+                if (c is '\\' or '_' or '~' or '*' or '@' or '`') {
                     result.Append('\\');
                 }
                 result.Append(c);
@@ -69,15 +69,15 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
         if (user.DiscriminatorValue == 0) {
             var username = escapeFormattingCharacters(user.GlobalName ?? user.Username);
             if (user.Nickname != null) {
-                return $"**{escapeFormattingCharacters(user.Nickname)}** ({username})";
+                return $"{escapeFormattingCharacters(user.Nickname)} ({username})";
             }
             return username;
         } else {
             var username = escapeFormattingCharacters(user.Username);
             if (user.Nickname != null) {
-                return $"**{escapeFormattingCharacters(user.Nickname)}** ({username}#{user.Discriminator})";
+                return $"{escapeFormattingCharacters(user.Nickname)} ({username}#{user.Discriminator})";
             }
-            return $"**{username}**#{user.Discriminator}";
+            return $"{username}#{user.Discriminator}";
         }
     }
 
