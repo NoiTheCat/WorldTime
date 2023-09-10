@@ -67,10 +67,11 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
         }
 
         if (user.DiscriminatorValue == 0) {
+            var username = escapeFormattingCharacters(user.GlobalName ?? user.Username);
             if (user.Nickname != null) {
-                return $"**{escapeFormattingCharacters(user.Nickname)}** ({escapeFormattingCharacters(user.ToString())})";
+                return $"**{escapeFormattingCharacters(user.Nickname)}** ({username})";
             }
-            return escapeFormattingCharacters(user.ToString());
+            return username;
         } else {
             var username = escapeFormattingCharacters(user.Username);
             if (user.Nickname != null) {
