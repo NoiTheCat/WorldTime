@@ -8,8 +8,7 @@ public class ConfigCommands : CommandsBase {
     internal const string HelpUse12 = "Sets whether to use the 12-hour (AM/PM) format in time zone listings.";
     internal const string HelpSetFor = "Sets/updates time zone for a given user.";
     internal const string HelpRemoveFor = "Removes time zone for a given user.";
-    internal const string HelpPrivateConfirms
-        = "Sets whether to make confirmations for commands visible only to the user, except set-for and remove-for.";
+    internal const string HelpPrivateConfirms = "Sets whether to make set/update confirmations visible only to the user.";
 
     internal const string HelpBool = "True to enable, False to disable.";
 
