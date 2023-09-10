@@ -10,6 +10,7 @@ public class UserCommands : CommandsBase {
         + $"`/remove` - {HelpRemove}";
     const string EmbedHelpField2 =
         $"`/config use-12hour` - {ConfigCommands.HelpUse12}\n"
+        + $"`/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}\n"
         + $"`/set-for` - {ConfigCommands.HelpSetFor}\n"
         + $"`/remove-for` - {ConfigCommands.HelpRemoveFor}";
 
@@ -67,7 +68,8 @@ public class UserCommands : CommandsBase {
         using var db = DbContext;
         var userlist = db.GetGuildZones(Context.Guild.Id);
         if (userlist.Count == 0) {
-            await RespondAsync(":x: Nothing to show. Register your time zones with the bot using the `/set` command.");
+            await RespondAsync(":x: Nothing to show. Register your time zones with the bot using the `/set` command.",
+                ephemeral: true).ConfigureAwait(false);
             return;
         }
         
@@ -157,7 +159,9 @@ public class UserCommands : CommandsBase {
         }
         using var db = DbContext;
         db.UpdateUser((SocketGuildUser)Context.User, parsedzone);
-        await RespondAsync($":white_check_mark: Your time zone has been set to **{parsedzone}**.");
+        await RespondAsync($":white_check_mark: Your time zone has been set to **{parsedzone}**.",
+            ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
+            .ConfigureAwait(false);
     }
 
     [SlashCommand("remove", HelpRemove)]
@@ -165,7 +169,11 @@ public class UserCommands : CommandsBase {
     public async Task CmdRemove() {
         using var db = DbContext;
         var success = db.DeleteUser((SocketGuildUser)Context.User);
-        if (success) await RespondAsync(":white_check_mark: Your zone has been removed.");
-        else await RespondAsync(":x: You don't have a time zone set.");
+        if (success) await RespondAsync(":white_check_mark: Your zone has been removed.",
+                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
+                .ConfigureAwait(false);
+        else await RespondAsync(":x: You don't have a time zone set.",
+                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
+                .ConfigureAwait(false);
     }
 }
