@@ -73,11 +73,10 @@ public class UserCommands : CommandsBase {
             return;
         }
         
-        // Order times by popularity to limit how many are shown, group by printed name
+        // Generate time and zone names to be displayed, group with associated user IDs
         var sortedlist = new SortedDictionary<string, List<ulong>>();
         var ampm = db.GuildSettings.Where(s => s.GuildId == Context.Guild.Id).SingleOrDefault()?.Use12HourTime ?? false;
-        foreach ((string area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count).Take(20)) {
-            // Filter further to top 20 distinct timezones, even if they are not displayed in the final result
+        foreach ((string area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count)) {
             var areaprint = TzPrint(area, ampm);
             if (!sortedlist.ContainsKey(areaprint)) sortedlist.Add(areaprint, new List<ulong>());
             sortedlist[areaprint].AddRange(users);
