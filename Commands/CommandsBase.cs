@@ -29,9 +29,7 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
     /// </summary>
     protected static string TzPrint(string zone, bool use12hr) {
         var tzdb = DateTimeZoneProviders.Tzdb;
-        DateTimeZone tz = tzdb.GetZoneOrNull(zone)!;
-        if (tz == null) throw new Exception("Encountered unknown time zone: " + zone);
-
+        DateTimeZone tz = tzdb.GetZoneOrNull(zone) ?? throw new Exception("Encountered unknown time zone: " + zone);
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
         var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
         string fullstr;
