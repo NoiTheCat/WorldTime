@@ -23,6 +23,7 @@ public class UserCommands : CommandsBase {
     #endregion
 
     [SlashCommand("help", HelpHelp)]
+    [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
     public async Task CmdHelp() {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
         var guildct = ShardedClient.Guilds.Count;
@@ -47,7 +48,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("list", HelpList)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
         if (!await AreUsersDownloadedAsync(Context.Guild)) {
             await RespondAsync(ErrNoUserCache, ephemeral: true);
@@ -149,7 +150,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("set", HelpSet)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdSet([Summary(description: "The new time zone to set.")]string zone) {
         var parsedzone = ParseTimeZone(zone);
         if (parsedzone == null) {
@@ -164,7 +165,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("remove", HelpRemove)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdRemove() {
         using var db = DbContext;
         var success = db.DeleteUser((SocketGuildUser)Context.User);

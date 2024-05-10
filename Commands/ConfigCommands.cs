@@ -3,7 +3,7 @@ using Discord.Interactions;
 namespace WorldTime.Commands;
 [Group("config", "Configuration commands for World Time.")]
 [DefaultMemberPermissions(GuildPermission.ManageGuild)]
-[EnabledInDm(false)]
+[CommandContextType(InteractionContextType.Guild)]
 public class ConfigCommands : CommandsBase {
     internal const string HelpUse12 = "Sets whether to use the 12-hour (AM/PM) format in time zone listings.";
     internal const string HelpSetFor = "Sets/updates time zone for a given user.";
