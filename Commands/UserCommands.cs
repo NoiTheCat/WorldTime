@@ -3,17 +3,6 @@ using System.Text;
 
 namespace WorldTime.Commands;
 public class UserCommands : CommandsBase {
-    const string EmbedHelpField1 =
-        $"`/help` - {HelpHelp}\n"
-        + $"`/list` - {HelpList}\n"
-        + $"`/set` - {HelpSet}\n"
-        + $"`/remove` - {HelpRemove}";
-    const string EmbedHelpField2 =
-        $"`/config use-12hour` - {ConfigCommands.HelpUse12}\n"
-        + $"`/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}\n"
-        + $"`/set-for` - {ConfigCommands.HelpSetFor}\n"
-        + $"`/remove-for` - {ConfigCommands.HelpRemoveFor}";
-
     #region Help strings
     const string HelpHelp = "Displays a list of available bot commands.";
     const string HelpList = "Shows the current time for all recently active known users.";
@@ -31,7 +20,8 @@ public class UserCommands : CommandsBase {
         var uniquetz = db.GetDistinctZoneCount();
         await RespondAsync(embed: new EmbedBuilder() {
             Title = "Help & About",
-            Description = $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
+            Description =
+                $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
                 + "This bot is provided for free, without any paywalled 'premium' features. "
                 + "If you've found this bot useful, please consider contributing via the "
                 + "bot author's page on Ko-fi: https://ko-fi.com/noithecat.",
@@ -39,11 +29,23 @@ public class UserCommands : CommandsBase {
                 IconUrl = Context.Client.CurrentUser.GetAvatarUrl(),
                 Text = "World Time"
             }
-        }.AddField(inline: false, name: "Commands", value: EmbedHelpField1
-        ).AddField(inline: false, name: "Admin commands", value: EmbedHelpField2
+        }.AddField(inline: false, name: "Commands", value:
+            $"""
+            `/help` - {HelpHelp}
+            `/list` - {HelpList}
+            `/set` - {HelpSet}
+            `/remove` - {HelpRemove}
+            """
+        ).AddField(inline: false, name: "Admin commands", value:
+            $"""
+            `/config use-12hour` - {ConfigCommands.HelpUse12}
+            `/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}
+            `/set-for` - {ConfigCommands.HelpSetFor}
+            `/remove-for` - {ConfigCommands.HelpRemoveFor}
+            """
         ).AddField(inline: false, name: "Zones", value:
             "This bot accepts zone names from the IANA Time Zone Database (a.k.a. Olson Database). " +
-            "A useful tool to determine yours can be found at: https://kevinnovak.github.io/Time-Zone-Picker/"
+            "A useful tool to determine yours can be found at: https://zones.arilyn.cc/"
         ).Build());
     }
 
