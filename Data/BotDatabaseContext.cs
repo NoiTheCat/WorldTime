@@ -102,7 +102,7 @@ public class BotDatabaseContext : DbContext {
                     select Tuple.Create(entry.TimeZone, (ulong)entry.UserId);
         var resultSet = new Dictionary<string, List<ulong>>();
         foreach (var (tz, user) in query) {
-            if (!resultSet.ContainsKey(tz)) resultSet.Add(tz, new List<ulong>());
+            if (!resultSet.ContainsKey(tz)) resultSet[tz] = [];
             resultSet[tz].Add(user);
         }
         return resultSet;

@@ -104,7 +104,7 @@ internal class WorldTime : IDisposable {
         // Discord Bots
         if (!string.IsNullOrEmpty(Config.DBotsToken)) {
             try {
-                string dBotsApiUrl = $"https://discord.bots.gg/api/v1/bots/{ botId }/stats";
+                var dBotsApiUrl = $"https://discord.bots.gg/api/v1/bots/{ botId }/stats";
                 var body = $"{{ \"guildCount\": {guildCount} }}";
                 var uri = new Uri(string.Format(dBotsApiUrl));
 

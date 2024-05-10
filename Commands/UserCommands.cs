@@ -76,9 +76,9 @@ public class UserCommands : CommandsBase {
         // Generate time and zone names to be displayed, group with associated user IDs
         var sortedlist = new SortedDictionary<string, List<ulong>>();
         var ampm = db.GuildSettings.Where(s => s.GuildId == Context.Guild.Id).SingleOrDefault()?.Use12HourTime ?? false;
-        foreach ((string area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count)) {
+        foreach ((var area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count)) {
             var areaprint = TzPrint(area, ampm);
-            if (!sortedlist.ContainsKey(areaprint)) sortedlist.Add(areaprint, new List<ulong>());
+            if (!sortedlist.ContainsKey(areaprint)) sortedlist[areaprint] = [];
             sortedlist[areaprint].AddRange(users);
         }
 
@@ -87,10 +87,10 @@ public class UserCommands : CommandsBase {
 
         // Build zone listings with users
         var outputlines = new List<string>();
-        foreach ((string area, List<ulong> users) in sortedlist) {
+        foreach ((var area, List<ulong> users) in sortedlist) {
             var buffer = new StringBuilder();
             buffer.Append(area[6..] + ": ");
-            bool empty = true;
+            var empty = true;
             foreach (var userid in users) {
                 var userinstance = Context.Guild.GetUser(userid);
                 if (userinstance == null) continue;
@@ -107,7 +107,7 @@ public class UserCommands : CommandsBase {
 
         // Prepare for output - send buffers out if they become too large
         outputlines.Sort();
-        bool hasOutputOneLine = false;
+        var hasOutputOneLine = false;
         // First output is shown as an interaction response, followed then as regular channel messages
         async Task doOutput(Embed msg) {
             if (!hasOutputOneLine) {
@@ -137,7 +137,7 @@ public class UserCommands : CommandsBase {
         using var db = DbContext;
         var result = db.GetUserZone(parameter);
         if (result == null) {
-            bool isself = Context.User.Id == parameter.Id;
+            var isself = Context.User.Id == parameter.Id;
             if (isself) await RespondAsync(":x: You do not have a time zone. Set it with `tz.set`.", ephemeral: true);
             else await RespondAsync(":x: The given user does not have a time zone set.", ephemeral: true);
             return;
