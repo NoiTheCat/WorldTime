@@ -3,17 +3,6 @@ using System.Text;
 
 namespace WorldTime.Commands;
 public class UserCommands : CommandsBase {
-    const string EmbedHelpField1 =
-        $"`/help` - {HelpHelp}\n"
-        + $"`/list` - {HelpList}\n"
-        + $"`/set` - {HelpSet}\n"
-        + $"`/remove` - {HelpRemove}";
-    const string EmbedHelpField2 =
-        $"`/config use-12hour` - {ConfigCommands.HelpUse12}\n"
-        + $"`/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}\n"
-        + $"`/set-for` - {ConfigCommands.HelpSetFor}\n"
-        + $"`/remove-for` - {ConfigCommands.HelpRemoveFor}";
-
     #region Help strings
     const string HelpHelp = "Displays a list of available bot commands.";
     const string HelpList = "Shows the current time for all recently active known users.";
@@ -23,6 +12,7 @@ public class UserCommands : CommandsBase {
     #endregion
 
     [SlashCommand("help", HelpHelp)]
+    [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
     public async Task CmdHelp() {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
         var guildct = ShardedClient.Guilds.Count;
@@ -30,7 +20,8 @@ public class UserCommands : CommandsBase {
         var uniquetz = db.GetDistinctZoneCount();
         await RespondAsync(embed: new EmbedBuilder() {
             Title = "Help & About",
-            Description = $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
+            Description =
+                $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
                 + "This bot is provided for free, without any paywalled 'premium' features. "
                 + "If you've found this bot useful, please consider contributing via the "
                 + "bot author's page on Ko-fi: https://ko-fi.com/noithecat.",
@@ -38,16 +29,28 @@ public class UserCommands : CommandsBase {
                 IconUrl = Context.Client.CurrentUser.GetAvatarUrl(),
                 Text = "World Time"
             }
-        }.AddField(inline: false, name: "Commands", value: EmbedHelpField1
-        ).AddField(inline: false, name: "Admin commands", value: EmbedHelpField2
+        }.AddField(inline: false, name: "Commands", value:
+            $"""
+            `/help` - {HelpHelp}
+            `/list` - {HelpList}
+            `/set` - {HelpSet}
+            `/remove` - {HelpRemove}
+            """
+        ).AddField(inline: false, name: "Admin commands", value:
+            $"""
+            `/config use-12hour` - {ConfigCommands.HelpUse12}
+            `/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}
+            `/set-for` - {ConfigCommands.HelpSetFor}
+            `/remove-for` - {ConfigCommands.HelpRemoveFor}
+            """
         ).AddField(inline: false, name: "Zones", value:
             "This bot accepts zone names from the IANA Time Zone Database (a.k.a. Olson Database). " +
-            "A useful tool to determine yours can be found at: https://kevinnovak.github.io/Time-Zone-Picker/"
+            "A useful tool to determine yours can be found at: https://zones.arilyn.cc/"
         ).Build());
     }
 
     [SlashCommand("list", HelpList)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
         if (!await AreUsersDownloadedAsync(Context.Guild)) {
             await RespondAsync(ErrNoUserCache, ephemeral: true);
@@ -76,9 +79,9 @@ public class UserCommands : CommandsBase {
         // Generate time and zone names to be displayed, group with associated user IDs
         var sortedlist = new SortedDictionary<string, List<ulong>>();
         var ampm = db.GuildSettings.Where(s => s.GuildId == Context.Guild.Id).SingleOrDefault()?.Use12HourTime ?? false;
-        foreach ((string area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count)) {
+        foreach ((var area, List<ulong> users) in userlist.OrderByDescending(o => o.Value.Count)) {
             var areaprint = TzPrint(area, ampm);
-            if (!sortedlist.ContainsKey(areaprint)) sortedlist.Add(areaprint, new List<ulong>());
+            if (!sortedlist.ContainsKey(areaprint)) sortedlist[areaprint] = [];
             sortedlist[areaprint].AddRange(users);
         }
 
@@ -87,10 +90,10 @@ public class UserCommands : CommandsBase {
 
         // Build zone listings with users
         var outputlines = new List<string>();
-        foreach ((string area, List<ulong> users) in sortedlist) {
+        foreach ((var area, List<ulong> users) in sortedlist) {
             var buffer = new StringBuilder();
             buffer.Append(area[6..] + ": ");
-            bool empty = true;
+            var empty = true;
             foreach (var userid in users) {
                 var userinstance = Context.Guild.GetUser(userid);
                 if (userinstance == null) continue;
@@ -107,7 +110,7 @@ public class UserCommands : CommandsBase {
 
         // Prepare for output - send buffers out if they become too large
         outputlines.Sort();
-        bool hasOutputOneLine = false;
+        var hasOutputOneLine = false;
         // First output is shown as an interaction response, followed then as regular channel messages
         async Task doOutput(Embed msg) {
             if (!hasOutputOneLine) {
@@ -137,7 +140,7 @@ public class UserCommands : CommandsBase {
         using var db = DbContext;
         var result = db.GetUserZone(parameter);
         if (result == null) {
-            bool isself = Context.User.Id == parameter.Id;
+            var isself = Context.User.Id == parameter.Id;
             if (isself) await RespondAsync(":x: You do not have a time zone. Set it with `tz.set`.", ephemeral: true);
             else await RespondAsync(":x: The given user does not have a time zone set.", ephemeral: true);
             return;
@@ -149,7 +152,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("set", HelpSet)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdSet([Summary(description: "The new time zone to set.")]string zone) {
         var parsedzone = ParseTimeZone(zone);
         if (parsedzone == null) {
@@ -164,7 +167,7 @@ public class UserCommands : CommandsBase {
     }
 
     [SlashCommand("remove", HelpRemove)]
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdRemove() {
         using var db = DbContext;
         var success = db.DeleteUser((SocketGuildUser)Context.User);

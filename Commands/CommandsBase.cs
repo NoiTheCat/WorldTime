@@ -7,10 +7,9 @@ using WorldTime.Data;
 
 namespace WorldTime.Commands;
 public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
-    protected const string ErrInvalidZone = ":x: Not a valid zone name."
-        + " To find your time zone, refer to: <https://kevinnovak.github.io/Time-Zone-Picker/>.";
-    protected const string ErrNoUserCache = ":warning: Please try the command again.";
-    protected const string ErrNotAllowed = ":x: Only server moderators may use this command.";
+    protected const string ErrInvalidZone =
+        ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
+    protected const string ErrNoUserCache = ":warning: Oops, bot wasn't ready. Please try again in a moment.";
 
     private static readonly ReadOnlyDictionary<string, string> _tzNameMap;
 
