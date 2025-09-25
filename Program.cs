@@ -1,7 +1,7 @@
 ﻿namespace WorldTime;
 
 class Program {
-    private static WorldTime _bot = null!;
+    private static ShardManager _bot = null!;
     private static readonly DateTimeOffset _botStartTime = DateTimeOffset.UtcNow;
 
     /// <summary>
@@ -18,8 +18,7 @@ class Program {
             Environment.Exit(2);
         }
 
-        _bot = new WorldTime(cfg);
-        AppDomain.CurrentDomain.ProcessExit += OnCancelEvent;
+        _bot = new ShardManager(cfg);
         Console.CancelKeyPress += OnCancelEvent;
 
         await _bot.StartAsync();
