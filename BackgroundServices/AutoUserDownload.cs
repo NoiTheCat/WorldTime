@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace WorldTime.BackgroundServices;
 /// <summary>
-/// Proactively fills the user cache for guilds in which any guild settings exist.
+/// Selectively fills the user cache without overwhelming memory and/or network resources.
 /// </summary>
 class AutoUserDownload : BackgroundService {
     private static readonly TimeSpan RequestTimeout = ShardManager.DeadShardThreshold / 3;
@@ -25,7 +25,7 @@ class AutoUserDownload : BackgroundService {
             .Where(g => !g.HasAllMembers)
             .Select(g => g.Id)
             .ToHashSet();
-        // ...and if the guild contains any user data
+        // ...and if there exists any corresponding user data
         HashSet<ulong> mustFetch;
         try {
             await ConcurrentSemaphore.WaitAsync(token);
@@ -33,6 +33,7 @@ class AutoUserDownload : BackgroundService {
             mustFetch = [.. db.UserEntries.AsNoTracking()
                 .Where(e => incompleteCaches.Contains(e.GuildId))
                 .Select(e => e.GuildId)
+                .Distinct()
                 .Where(e => !_skippedGuilds.Contains(e))];
         } finally {
             try {
