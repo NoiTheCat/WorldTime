@@ -3,21 +3,47 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace WorldTime;
 /// <summary>
 /// Loads and holds configuration values.
 /// </summary>
-class Configuration {
+partial class Configuration {
+    [GeneratedRegex(@"(?<low>\d{1,3})[-,](?<high>\d{1,3})")]
+    private static partial Regex ShardRangeParser();
+    const string KeyShardRange = "ShardRange";
+
     public string BotToken { get; }
     public string? DBotsToken { get; }
 
+    public int ShardStart { get; }
+    public int ShardAmount { get; }
     public int ShardTotal { get; }
 
     public string? SqlHost { get; }
     public string? SqlDatabase { get; }
     public string SqlUsername { get; }
     public string SqlPassword { get; }
+
+    /// <summary>
+    /// Number of seconds between each time the status task runs, in seconds.
+    /// </summary>
+    public int StatusInterval { get; }
+    /// <summary>
+    /// Number of concurrent shard startups to happen on each check.
+    /// This value also determines the maximum amount of concurrent background database operations.
+    /// </summary>
+    public int MaxConcurrentOperations { get; }
+    /// <summary>
+    /// Amount of time to wait between background task runs within each shard.
+    /// </summary>
+    public int BackgroundInterval { get; }
+    /// <summary>
+    /// Gets whether to show common connect/disconnect events and other related messages.
+    /// This is disabled in the public instance, but it's worth keeping enabled in self-hosted bots.
+    /// </summary>
+    public bool LogConnectionStatus { get; init; }
 
     public Configuration() {
         var args = CommandLineParameters.Parse(Environment.GetCommandLineArgs());
@@ -43,10 +69,34 @@ class Configuration {
         ShardTotal = args.ShardTotal ?? ReadConfKey<int?>(jc, nameof(ShardTotal), false) ?? 1;
         if (ShardTotal < 1) throw new Exception($"'{nameof(ShardTotal)}' must be a positive integer.");
 
+        ShardTotal = args.ShardTotal ?? ReadConfKey<int?>(jc, nameof(ShardTotal), false) ?? 1;
+        if (ShardTotal < 1) throw new Exception($"'{nameof(ShardTotal)}' must be a positive integer.");
+
+        var shardRangeInput = ReadConfKey<string>(jc, KeyShardRange, false);
+        if (!string.IsNullOrWhiteSpace(shardRangeInput)) {
+            var m = ShardRangeParser().Match(shardRangeInput);
+            if (m.Success) {
+                ShardStart = int.Parse(m.Groups["low"].Value);
+                var high = int.Parse(m.Groups["high"].Value);
+                ShardAmount = high - (ShardStart - 1);
+            } else {
+                throw new Exception($"Shard range not properly formatted in '{KeyShardRange}'.");
+            }
+        } else {
+            // Default: this instance handles all shards
+            ShardStart = 0;
+            ShardAmount = ShardTotal;
+        }
+
         SqlHost = ReadConfKey<string>(jc, nameof(SqlHost), false);
         SqlDatabase = ReadConfKey<string?>(jc, nameof(SqlDatabase), false);
         SqlUsername = ReadConfKey<string>(jc, nameof(SqlUsername), true);
         SqlPassword = ReadConfKey<string>(jc, nameof(SqlPassword), true);
+
+        StatusInterval = ReadConfKey<int?>(jc, nameof(StatusInterval), false) ?? 90;
+        MaxConcurrentOperations = ReadConfKey<int?>(jc, nameof(MaxConcurrentOperations), false) ?? 4;
+        BackgroundInterval = ReadConfKey<int?>(jc, nameof(BackgroundInterval), false) ?? 60;
+        LogConnectionStatus = ReadConfKey<bool?>(jc, nameof(LogConnectionStatus), false) ?? true;
     }
 
     private static T? ReadConfKey<T>(JObject jc, string key, [DoesNotReturnIf(true)] bool failOnEmpty) {
@@ -61,6 +111,9 @@ class Configuration {
 
         [Option("shardtotal")]
         public int? ShardTotal { get; set; }
+
+        [Option("shardrange")]
+        public string? ShardRange { get; set; }
 
         public static CommandLineParameters? Parse(string[] args) {
             CommandLineParameters? result = null;

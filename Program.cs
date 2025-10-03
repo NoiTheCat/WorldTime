@@ -1,7 +1,8 @@
-﻿namespace WorldTime;
+﻿using System.Runtime.InteropServices;
 
+namespace WorldTime;
 class Program {
-    private static WorldTime _bot = null!;
+    private static ShardManager _bot = null!;
     private static readonly DateTimeOffset _botStartTime = DateTimeOffset.UtcNow;
 
     /// <summary>
@@ -18,12 +19,24 @@ class Program {
             Environment.Exit(2);
         }
 
-        _bot = new WorldTime(cfg);
-        AppDomain.CurrentDomain.ProcessExit += OnCancelEvent;
-        Console.CancelKeyPress += OnCancelEvent;
+        _bot = new ShardManager(cfg);
+        
+        Console.CancelKeyPress += static (s, e) => {
+            // This additionally handles SIGTERM on UNIX-like OSes
+            e.Cancel = true;
+            Log("Shutdown", "Caught Ctrl-C or SIGINT.");
+            DoShutdown();
+        };
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) {
+            _sigtermHandler = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx => {
+                ctx.Cancel = true;
+                Log("Shutdown", "Caught SIGTERM.");
+                DoShutdown();
+            });
+        }
 
-        await _bot.StartAsync();
-        await Task.Delay(-1);
+        await _shutdownBlock.Task;
+        Log(nameof(WorldTime), $"Shutdown complete. Uptime: {BotUptime}");
     }
 
     /// <summary>
@@ -36,19 +49,20 @@ class Program {
             Console.WriteLine($"{ts:s} [{source}] {item}");
     }
 
-    private static bool _shutdownRequested = false;
-    private static void OnCancelEvent(object? sender, EventArgs e) {
-        if (e is ConsoleCancelEventArgs ce) ce.Cancel = true;
-        
-        if (_shutdownRequested) return;
-        _shutdownRequested = true;
-        Log("Shutdown", "Shutting down...");
+    private static int _isShuttingDown = 0;
+    private static PosixSignalRegistration? _sigtermHandler; // DO NOT REMOVE else signal handler is GCed away
+    private static readonly TaskCompletionSource<bool> _shutdownBlock = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static void DoShutdown() {
+        if (Interlocked.Exchange(ref _isShuttingDown, 1) == 1) return;
 
+        Log("Shutdown", "Shutting down...");
         var dispose = Task.Run(_bot.Dispose);
-        if (!dispose.Wait(15000)) {
-            Log("Shutdown", "Normal shutdown is taking too long. Will force quit.");
-            Environment.ExitCode = 1;
+        if (!dispose.Wait(10000)) {
+            Log("Shutdown", "Normal shutdown is taking too long. We're force-quitting.");
+            Environment.Exit(1);
         }
-        Environment.Exit(Environment.ExitCode);
+        
+        Environment.ExitCode = 0;
+        _shutdownBlock.SetResult(true);
     }
 }

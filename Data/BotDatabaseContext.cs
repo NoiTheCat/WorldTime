@@ -34,7 +34,7 @@ public class BotDatabaseContext : DbContext {
     /// Checks if a given guild contains at least one user data entry with recent enough activity.
     /// <br />To be used within a <see langword="using"/> context.
     /// </summary>
-    internal bool HasAnyUsers(SocketGuild guild) => UserEntries.Where(u => u.GuildId == (long)guild.Id).Any();
+    internal bool HasAnyUsers(SocketGuild guild) => UserEntries.Where(u => u.GuildId == guild.Id).Any();
 
     /// <summary>
     /// Gets the number of unique time zones in the database.
@@ -51,7 +51,7 @@ public class BotDatabaseContext : DbContext {
     /// <see langword="false"/> if the user did not exist.
     /// </returns>
     internal bool DeleteUser(SocketGuildUser user) {
-        var tuser = UserEntries.Where(u => u.UserId == (long)user.Id && u.GuildId == (long)user.Guild.Id).SingleOrDefault();
+        var tuser = UserEntries.Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
         if (tuser != null) {
             Remove(tuser);
             SaveChanges();
@@ -66,11 +66,11 @@ public class BotDatabaseContext : DbContext {
     /// <br />To be used within a <see langword="using"/> context.
     /// </summary>
     internal void UpdateUser(SocketGuildUser user, string timezone) {
-        var tuser = UserEntries.Where(u => u.UserId == (long)user.Id && u.GuildId == (long)user.Guild.Id).SingleOrDefault();
+        var tuser = UserEntries.Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
         if (tuser != null) {
             Update(tuser);
         } else {
-            tuser = new UserEntry() { UserId = (long)user.Id, GuildId = (long)user.Guild.Id };
+            tuser = new UserEntry() { UserId = user.Id, GuildId = user.Guild.Id };
             Add(tuser);
         }
         tuser.TimeZone = timezone;
@@ -82,7 +82,7 @@ public class BotDatabaseContext : DbContext {
     /// <br />To be used within a <see langword="using"/> context.
     /// </summary>
     internal string? GetUserZone(SocketGuildUser user) {
-        var tuser = UserEntries.Where(u => u.UserId == (long)user.Id && u.GuildId == (long)user.Guild.Id).SingleOrDefault();
+        var tuser = UserEntries.Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
         return tuser?.TimeZone;
     }
 
@@ -97,7 +97,7 @@ public class BotDatabaseContext : DbContext {
         // Implementing the query from the previous iteration, in which further filtering is done by the caller.
         // TODO consider bringing filtering back to this step, if there may be any advantage
         var query = from entry in UserEntries
-                    where entry.GuildId == (long)guildId
+                    where entry.GuildId == guildId
                     orderby entry.UserId
                     select Tuple.Create(entry.TimeZone, (ulong)entry.UserId);
         var resultSet = new Dictionary<string, List<ulong>>();

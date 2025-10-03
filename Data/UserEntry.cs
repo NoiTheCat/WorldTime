@@ -6,10 +6,10 @@ namespace WorldTime.Data;
 public class UserEntry {
     [Key]
     [Column("guild_id")]
-    public long GuildId { get; set; }
+    public ulong GuildId { get; set; }
     [Key]
     [Column("user_id")]
-    public long UserId { get; set; }
+    public ulong UserId { get; set; }
     [Column("zone")]
     public string TimeZone { get; set; } = null!;
 }

@@ -1,12 +1,13 @@
 using Discord.Interactions;
 using NodaTime;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using WorldTime.Data;
 
 namespace WorldTime.Commands;
-public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
+public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     protected const string ErrInvalidZone =
         ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
     protected const string ErrNoUserCache = ":warning: Oops, bot wasn't ready. Please try again in a moment.";
@@ -19,8 +20,10 @@ public class CommandsBase : InteractionModuleBase<ShardedInteractionContext> {
         _tzNameMap = new(tzNameMap);
     }
 
-    public DiscordShardedClient ShardedClient { get; set; } = null!;
-    public BotDatabaseContext DbContext { get; set; } = null!;
+    [NotNull]
+    public ShardInstance? Shard { get; set; }
+    [NotNull]
+    public BotDatabaseContext? DbContext { get; set; }
 
     /// <summary>
     /// Returns a string displaying the current time in the given time zone.

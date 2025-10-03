@@ -15,7 +15,7 @@ public class UserCommands : CommandsBase {
     [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
     public async Task CmdHelp() {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
-        var guildct = ShardedClient.Guilds.Count;
+        var guildct = Shard.GetTotalGuildCount();
         using var db = DbContext;
         var uniquetz = db.GetDistinctZoneCount();
         await RespondAsync(embed: new EmbedBuilder() {
