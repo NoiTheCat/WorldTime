@@ -22,7 +22,45 @@ class AutoUserDownload : BackgroundService {
     }
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
-        var mustFetch = DetermineDownloadableGuilds();
+        await GCHoldSemaphore.WaitAsync(token).ConfigureAwait(false);
+        int processed;
+        try {
+            var mustFetch = DetermineDownloadableGuilds();
+            processed = await DoDownloadingAsync(mustFetch, token).ConfigureAwait(false);
+        } finally {
+            GCHoldSemaphore.Release();
+        }
+        if (processed > 0) Log($"Member list downloads handled for {processed} guilds.");
+
+        // but we're -still- running into memory constraints... let's run it just this once?
+        // given the new logic, this should only run once, on the first tick.
+        
+        if (processed > 100) {
+            Log("Performing post-cleanup...");
+            var before = GC.GetTotalMemory(forceFullCollection: false);
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
+            var after = GC.GetTotalMemory(forceFullCollection: true);
+            Log($"Done - Reclaimed {before - after:N0} bytes.");
+            Log("tick count " + tickCount);
+        }
+    }
+
+    // Consider guilds with incomplete member lists that have not previously had failed downloads,
+    // and where user-specific configuration exists.
+    private HashSet<ulong> DetermineDownloadableGuilds() {
+        var incompleteCaches = Shard.DiscordClient.Guilds
+                .Where(g => !g.HasAllMembers)               // Consider guilds with incomplete caches,
+                .Where(g => !_skippedGuilds.Contains(g.Id)) // that have not previously failed during this connection, and...
+                .Select(g => g.Id)
+                .ToHashSet();
+        using var db = new BotDatabaseContext();            // ...where some user data exists.
+        return [.. db.UserEntries.AsNoTracking()
+                                 .Where(e => incompleteCaches.Contains(e.GuildId))
+                                 .Select(e => e.GuildId)
+                                 .Distinct()];
+    }
+
+    private async Task<int> DoDownloadingAsync(HashSet<ulong> mustFetch, CancellationToken token) {
         var processed = 0;
         foreach (var item in mustFetch) {
             // We're useless if not connected
@@ -48,23 +86,23 @@ class AutoUserDownload : BackgroundService {
                 to run in parallel. Solving this requires refactoring or a clever new solution.
                 But as of this writing, saving memory is the biggest priority right now.
             */
-            await GCHoldSemaphore.WaitAsync(token);
+            GC.TryStartNoGCRegion(MemoryBudget);
+            SocketGuild? guild = null;
             try {
-                GC.TryStartNoGCRegion(MemoryBudget);
-                var guild = Shard.DiscordClient.GetGuild(item);
-                if (guild == null) continue; // A guild disappeared...?
-
+                guild = Shard.DiscordClient.GetGuild(item);
+                if (guild == null) continue; // Guild disappeared between filtering and now
+                
                 var dl = guild.DownloadUsersAsync();
                 try {
                     dl.Wait(20_000, token); // Wait no more than 20 seconds
                 } catch (Exception) { }
-                if (token.IsCancellationRequested) return; // Skip all reporting, error logging on cancellation
+                if (token.IsCancellationRequested) return processed; // Skip all reporting, error logging on cancellation
 
                 if (dl.IsFaulted) {
                     Log("Exception thrown by download task: " + dl.Exception);
                     break;
                 } else if (!dl.IsCompletedSuccessfully) {
-                    Log($"Task unresponsive, will skip (ID {guild.Id}, with {guild.MemberCount} members).");
+                    Log($"Task unresponsive, will skip monitoring (G: {guild.Id}, U: {guild.MemberCount}).");
                     _skippedGuilds.Add(guild.Id);
                     continue;
                 }
@@ -72,33 +110,16 @@ class AutoUserDownload : BackgroundService {
                 if (GCSettings.LatencyMode == GCLatencyMode.NoGCRegion) {
                     GC.EndNoGCRegion();
                 } else {
-                    Log("Notice: Critical memory budget was exceeded in the previous operation.");
+                    Log($"Note: NoGCRegion ended prematurely" + (guild == null ? "." : $"(G: {guild.Id}, U: {guild.MemberCount})."));
                 }
-                GCHoldSemaphore.Release();
             }
             processed++;
-            if (token.IsCancellationRequested) return;
+            if (token.IsCancellationRequested) return processed;
 
             // Allow other tasks to run in the meantime
-            await Task.Yield();
+            //await Task.Yield();
+            
         }
-
-        if (processed > 0) Log($"Member list downloads handled for {processed} guilds.");
-    }
-
-    // Consider guilds with incomplete member lists that have not previously had failed downloads,
-    // and where user-specific configuration exists.
-    // TODO check for guild config instead of user config?
-    private HashSet<ulong> DetermineDownloadableGuilds() {
-        var incompleteCaches = Shard.DiscordClient.Guilds
-                .Where(g => !g.HasAllMembers)               // Consider guilds with incomplete caches,
-                .Where(g => !_skippedGuilds.Contains(g.Id)) // that have not previously failed during this instance, and...
-                .Select(g => g.Id)
-                .ToHashSet();
-        using var db = new BotDatabaseContext();            // ...where guild-specific configuration is present.
-        return [.. db.UserEntries.AsNoTracking()
-                                 .Where(e => incompleteCaches.Contains(e.GuildId))
-                                 .Select(e => e.GuildId)
-                                 .Distinct()];
+        return processed;
     }
 }

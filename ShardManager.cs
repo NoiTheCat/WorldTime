@@ -126,8 +126,7 @@ class ShardManager : IDisposable {
                 Log(shardStatuses.ToString().TrimEnd());
 
                 // Start uninitialized shards
-                var startAllowance = Config.MaxConcurrentOperations;
-
+                var startAllowance = Config.ShardStartInterval;
                 foreach (var id in nullShards) {
                     if (startAllowance-- > 0) {
                         _shards[id] = await InitializeShard(id);
