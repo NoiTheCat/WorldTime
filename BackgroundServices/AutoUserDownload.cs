@@ -7,7 +7,6 @@ namespace WorldTime.BackgroundServices;
 /// Selectively fills the user cache without overwhelming memory, database, or network resources.
 /// </summary>
 class AutoUserDownload : BackgroundService {
-    private static readonly TimeSpan RequestTimeout = ShardManager.DeadShardThreshold / 3;
     private static readonly SemaphoreSlim GCHoldSemaphore = new(1, 1);
     private const long MemoryBudget = 200_000_000;
 
@@ -57,7 +56,7 @@ class AutoUserDownload : BackgroundService {
 
                 var dl = guild.DownloadUsersAsync();
                 try {
-                    dl.Wait((int)RequestTimeout.TotalMilliseconds / 2, token);
+                    dl.Wait(20_000, token); // Wait no more than 20 seconds
                 } catch (Exception) { }
                 if (token.IsCancellationRequested) return; // Skip all reporting, error logging on cancellation
 
@@ -80,7 +79,7 @@ class AutoUserDownload : BackgroundService {
             processed++;
             if (token.IsCancellationRequested) return;
 
-            // Allow other shards to run in the meantime
+            // Allow other tasks to run in the meantime
             await Task.Yield();
         }
 
@@ -100,7 +99,6 @@ class AutoUserDownload : BackgroundService {
         return [.. db.UserEntries.AsNoTracking()
                                  .Where(e => incompleteCaches.Contains(e.GuildId))
                                  .Select(e => e.GuildId)
-                                 .Distinct()
-                                 .Take(350)]; // TODO configurable?
+                                 .Distinct()];
     }
 }

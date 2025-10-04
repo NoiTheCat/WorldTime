@@ -13,12 +13,6 @@ namespace WorldTime;
 /// </summary>
 class ShardManager : IDisposable {
     /// <summary>
-    /// Amount of time without a completed background service run before a shard instance
-    /// is considered "dead" and tasked to be removed.
-    /// </summary>
-    public static readonly TimeSpan DeadShardThreshold = new(0, 20, 0);
-
-    /// <summary>
     /// A dictionary with shard IDs as its keys and shard instances as its values.
     /// When initialized, all keys will be created as configured. If an instance is removed,
     /// a key's corresponding value will temporarily become null instead of the key/value
@@ -109,7 +103,6 @@ class ShardManager : IDisposable {
                 // Iterate through shards, create report on each
                 var shardStatuses = new StringBuilder();
                 var nullShards = new List<int>();
-                var deadShards = new List<int>();
                 foreach (var i in _shards.Keys) {
                     shardStatuses.Append($"Shard {i:00}: ");
 
@@ -127,29 +120,12 @@ class ShardManager : IDisposable {
                     shardStatuses.Append($" Users: {client.Guilds.Sum(s => s.Users.Count):000000}.");
                     shardStatuses.Append($" Background: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;
-                    if (lastRun > DeadShardThreshold / 3) {
-                        // Formerly known as a 'slow' shard
-                        shardStatuses.Append($", heartbeat {lastRun.TotalMinutes:00.0}m ago.");
-                    } else {
-                        shardStatuses.Append('.');
-                    }
-
+                    shardStatuses.Append($" as of {lastRun.TotalMinutes:00.0}m ago.");
                     shardStatuses.AppendLine();
-
-                    if (lastRun > DeadShardThreshold) {
-                        shardStatuses.AppendLine($"Shard {i:00} marked for disposal.");
-                        deadShards.Add(i);
-                    }
                 }
                 Log(shardStatuses.ToString().TrimEnd());
 
-                // Remove dead shards
-                foreach (var dead in deadShards) {
-                    _shards[dead]!.Dispose();
-                    _shards[dead] = null;
-                }
-
-                // Start null shards, a few at at time
+                // Start uninitialized shards
                 var startAllowance = Config.MaxConcurrentOperations;
 
                 foreach (var id in nullShards) {
