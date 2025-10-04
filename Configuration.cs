@@ -20,6 +20,7 @@ partial class Configuration {
     public int ShardStart { get; }
     public int ShardAmount { get; }
     public int ShardTotal { get; }
+    public int ShardStartInterval { get; }
 
     public string? SqlHost { get; }
     public string? SqlDatabase { get; }
@@ -87,6 +88,8 @@ partial class Configuration {
             ShardStart = 0;
             ShardAmount = ShardTotal;
         }
+
+        ShardStartInterval = ReadConfKey<int?>(jc, nameof(ShardStartInterval), false) ?? 2;
 
         SqlHost = ReadConfKey<string>(jc, nameof(SqlHost), false);
         SqlDatabase = ReadConfKey<string?>(jc, nameof(SqlDatabase), false);
