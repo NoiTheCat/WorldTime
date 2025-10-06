@@ -39,7 +39,8 @@ class ShardManager : IDisposable {
 
         // Start status reporting thread
         _mainCancel = new CancellationTokenSource();
-        _statusTask = Task.Factory.StartNew(StatusLoop, _mainCancel.Token);
+        _statusTask = Task.Factory.StartNew(StatusLoop, _mainCancel.Token,
+                                            TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
 
     public void Dispose() {
@@ -82,7 +83,7 @@ class ShardManager : IDisposable {
             .AddTransient(typeof(BotDatabaseContext))
             .BuildServiceProvider();
         var newInstance = services.GetRequiredService<ShardInstance>();
-        await newInstance.StartAsync();
+        await newInstance.StartAsync().ConfigureAwait(false);
 
         return newInstance;
     }
@@ -100,15 +101,21 @@ class ShardManager : IDisposable {
             while (!_mainCancel.IsCancellationRequested) {
                 Log($"Uptime: {Program.BotUptime}");
 
+                var startAllowance = Config.ShardStartInterval;
+
                 // Iterate through shards, create report on each
                 var shardStatuses = new StringBuilder();
-                var nullShards = new List<int>();
                 foreach (var i in _shards.Keys) {
                     shardStatuses.Append($"Shard {i:00}: ");
 
                     if (_shards[i] == null) {
-                        shardStatuses.AppendLine("Inactive.");
-                        nullShards.Add(i);
+                        if (startAllowance > 0) {
+                            shardStatuses.AppendLine("Starting.");
+                            _shards[i] = await InitializeShard(i).ConfigureAwait(false);
+                            startAllowance--;
+                        } else {
+                            shardStatuses.AppendLine("Awaiting start.");
+                        }
                         continue;
                     }
 
@@ -116,24 +123,16 @@ class ShardManager : IDisposable {
                     var client = shard.DiscordClient;
                     // TODO look into better connection checking options. ConnectionState is not reliable.
                     shardStatuses.Append($"{Enum.GetName(typeof(ConnectionState), client.ConnectionState)} ({client.Latency:000}ms).");
-                    shardStatuses.Append($" Guilds: {client.Guilds.Count:0000}.");
-                    shardStatuses.Append($" Users: {client.Guilds.Sum(s => s.Users.Count):000000}.");
-                    shardStatuses.Append($" Background: {shard.CurrentExecutingService ?? "Idle"}");
+                    shardStatuses.Append($" G: {client.Guilds.Count:0000},");
+                    shardStatuses.Append($" U: {client.Guilds.Sum(s => s.Users.Count):N000000},");
+                    shardStatuses.Append($" BG: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;
-                    shardStatuses.Append($" as of {lastRun.TotalMinutes:00.0}m ago.");
+                    shardStatuses.Append($" since {Math.Floor(lastRun.TotalMinutes):00}m{lastRun.Seconds:00}s ago.");
                     shardStatuses.AppendLine();
                 }
                 Log(shardStatuses.ToString().TrimEnd());
 
-                // Start uninitialized shards
-                var startAllowance = Config.ShardStartInterval;
-                foreach (var id in nullShards) {
-                    if (startAllowance-- > 0) {
-                        _shards[id] = await InitializeShard(id);
-                    } else break;
-                }
-
-                await Task.Delay(Config.StatusInterval * 1000, _mainCancel.Token);
+                await Task.Delay(Config.StatusInterval * 1000, _mainCancel.Token).ConfigureAwait(false);
             }
         } catch (TaskCanceledException) { }
     }
