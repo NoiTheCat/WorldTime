@@ -99,8 +99,6 @@ class ShardManager : IDisposable {
     private async Task StatusLoop() {
         try {
             while (!_mainCancel.IsCancellationRequested) {
-                Log($"Uptime: {Program.BotUptime}");
-
                 var startAllowance = Config.ShardStartInterval;
 
                 // Iterate through shards, create report on each
@@ -110,7 +108,7 @@ class ShardManager : IDisposable {
 
                     if (_shards[i] == null) {
                         if (startAllowance > 0) {
-                            shardStatuses.AppendLine("Starting.");
+                            shardStatuses.AppendLine("Started.");
                             _shards[i] = await InitializeShard(i).ConfigureAwait(false);
                             startAllowance--;
                         } else {
@@ -124,13 +122,14 @@ class ShardManager : IDisposable {
                     // TODO look into better connection checking options. ConnectionState is not reliable.
                     shardStatuses.Append($"{Enum.GetName(typeof(ConnectionState), client.ConnectionState)} ({client.Latency:000}ms).");
                     shardStatuses.Append($" G: {client.Guilds.Count:0000},");
-                    shardStatuses.Append($" U: {client.Guilds.Sum(s => s.Users.Count):N000000},");
+                    shardStatuses.Append($" U: {client.Guilds.Sum(s => s.Users.Count):000000},");
                     shardStatuses.Append($" BG: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;
                     shardStatuses.Append($" since {Math.Floor(lastRun.TotalMinutes):00}m{lastRun.Seconds:00}s ago.");
                     shardStatuses.AppendLine();
                 }
                 Log(shardStatuses.ToString().TrimEnd());
+                Log($"Uptime: {Program.BotUptime}");
 
                 await Task.Delay(Config.StatusInterval * 1000, _mainCancel.Token).ConfigureAwait(false);
             }
