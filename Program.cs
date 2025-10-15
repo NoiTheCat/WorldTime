@@ -22,7 +22,6 @@ class Program {
         _bot = new ShardManager(cfg);
         
         Console.CancelKeyPress += static (s, e) => {
-            // This additionally handles SIGTERM on UNIX-like OSes
             e.Cancel = true;
             Log("Shutdown", "Caught Ctrl-C or SIGINT.");
             DoShutdown();
