@@ -6,17 +6,15 @@ namespace WorldTime.BackgroundServices;
 /// Selectively fills the user cache without overwhelming memory, database, or network resources.
 /// </summary>
 class AutoUserDownload : BackgroundService {
-    // experimental: have only one shard downloading at a time
-    // could consider raising this limit later
-    private static readonly SemaphoreSlim DLHoldSemaphore = new(1, 1);
-    private const long MemoryBudget = 200_000_000;
+    private static readonly SemaphoreSlim _dlGate = new(3);
+    private const int GCCallThreshold = 300; // TODO make configurable or do further testing
+    private static readonly SemaphoreSlim _gcGate = new(1);
+    private static int _jobCount = 0;
 
     private readonly HashSet<ulong> _skippedGuilds = [];
 
     public AutoUserDownload(ShardInstance instance) : base(instance)
         => Shard.DiscordClient.Disconnected += OnDisconnect;
-    ~AutoUserDownload()
-        => Shard.DiscordClient.Disconnected -= OnDisconnect;
 
     private Task OnDisconnect(Exception ex) {
         _skippedGuilds.Clear();
@@ -24,21 +22,13 @@ class AutoUserDownload : BackgroundService {
     }
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
-        await DLHoldSemaphore.WaitAsync(token).ConfigureAwait(false);
+        
         int processed;
         try {
             var mustFetch = CreateDownloadList();
             processed = await ExecDownloadListAsync(mustFetch, token).ConfigureAwait(false);
         } finally {
-            DLHoldSemaphore.Release();
-        }
-
-        if (processed > 50) {
-            Log($"Handled {processed} guilds. Performing post-cleanup...");
-            var before = GC.GetTotalMemory(forceFullCollection: false);
-            GC.Collect(2, GCCollectionMode.Forced, true, true);
-            var after = GC.GetTotalMemory(forceFullCollection: true);
-            Log($"Done. Reclaimed {before - after:N0} bytes.");
+            _dlGate.Release();
         }
     }
 
@@ -60,36 +50,59 @@ class AutoUserDownload : BackgroundService {
     private async Task<int> ExecDownloadListAsync(HashSet<ulong> mustFetch, CancellationToken token) {
         var processed = 0;
         foreach (var item in mustFetch) {
-            // We're useless if not connected
-            if (Shard.DiscordClient.ConnectionState != ConnectionState.Connected) break;
-
-            SocketGuild? guild = null;
-            guild = Shard.DiscordClient.GetGuild(item);
-            if (guild == null) continue; // Guild disappeared between filtering and now
-            if (guild.HasAllMembers) continue; // Download likely already invoked by user input
-
-            var dl = guild.DownloadUsersAsync();
+            await _dlGate.WaitAsync(token).ConfigureAwait(false);
             try {
-                dl.Wait(20_000, token); // Wait no more than 20 seconds
-            } catch (Exception) { }
-            if (token.IsCancellationRequested) return processed; // Skip all reporting if cancel
+                // We're useless if not connected
+                if (Shard.DiscordClient.ConnectionState != ConnectionState.Connected) break;
 
-            if (dl.IsFaulted) {
-                Log("Exception thrown by download task: " + dl.Exception);
-                break;
-            } else if (!dl.IsCompletedSuccessfully) {
-                Log($"Task unresponsive, will skip monitoring (G: {guild.Id}, U: {guild.MemberCount}).");
-                _skippedGuilds.Add(guild.Id);
-                continue;
+                SocketGuild? guild = null;
+                guild = Shard.DiscordClient.GetGuild(item);
+                if (guild == null) continue; // Guild disappeared between filtering and now
+                if (guild.HasAllMembers) continue; // Download likely already invoked by user input
+
+                var dl = guild.DownloadUsersAsync();
+                if (await Task.WhenAny(dl, Task.Delay(30_000, token)) != dl) {
+                    if (!dl.IsCompletedSuccessfully) {
+                        Log($"Task taking too long, will skip monitoring (G: {guild.Id}, U: {guild.MemberCount}).");
+                        _skippedGuilds.Add(guild.Id);
+                        continue;
+                    }
+                }
+                if (dl.IsFaulted) {
+                    Log("Exception thrown by download task: " + dl.Exception);
+                    break;
+                }
+            } finally {
+                _dlGate.Release();
             }
             processed++;
-            if (token.IsCancellationRequested) return processed;
+            ConsiderGC();
+            if (token.IsCancellationRequested) break;
 
-            if (processed % 250 == 0 && processed > 0) {
-                // Take a break - keep this from starving other tasks
-                await Task.Yield();
-            }
+            // This loop can last a very long time on startup.
+            // Avoid starving other tasks.
+            await Task.Yield();
         }
         return processed;
+    }
+
+    // Manages manual invocation of garbage collector.
+    // Consecutive calls to DownloadUsersAsync inevitably causes a lot of slightly-less-than-temporary items to be held by the CLR,
+    // and this adds up with hundreds of thousands of users. Alternate methods have been explored, but this so far has proven to be
+    // the most stable, reliable, and quickest of them.
+    private void ConsiderGC() {
+        if (Interlocked.Increment(ref _jobCount) > GCCallThreshold) {
+            if (_gcGate.Wait(0)) { // prevents repeated calls across threads
+                try {
+                    var before = GC.GetTotalMemory(forceFullCollection: false);
+                    GC.Collect(2, GCCollectionMode.Forced, true, true);
+                    var after = GC.GetTotalMemory(forceFullCollection: true);
+                    Log($"Threshold reached. GC reclaimed {before - after:N0} bytes.");
+                    Interlocked.Exchange(ref _jobCount, 0);
+                } finally {
+                    _gcGate.Release();
+                }
+            }
+        }
     }
 }
