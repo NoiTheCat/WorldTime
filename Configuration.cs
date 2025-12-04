@@ -26,6 +26,7 @@ partial class Configuration {
     public string? SqlDatabase { get; }
     public string SqlUsername { get; }
     public string SqlPassword { get; }
+    internal string SqlApplicationName { get; }
 
     /// <summary>
     /// Number of seconds between each time the status task runs, in seconds.
@@ -70,10 +71,7 @@ partial class Configuration {
         ShardTotal = args.ShardTotal ?? ReadConfKey<int?>(jc, nameof(ShardTotal), false) ?? 1;
         if (ShardTotal < 1) throw new Exception($"'{nameof(ShardTotal)}' must be a positive integer.");
 
-        ShardTotal = args.ShardTotal ?? ReadConfKey<int?>(jc, nameof(ShardTotal), false) ?? 1;
-        if (ShardTotal < 1) throw new Exception($"'{nameof(ShardTotal)}' must be a positive integer.");
-
-        var shardRangeInput = ReadConfKey<string>(jc, KeyShardRange, false);
+        var shardRangeInput = args.ShardRange ?? ReadConfKey<string>(jc, KeyShardRange, false);
         if (!string.IsNullOrWhiteSpace(shardRangeInput)) {
             var m = ShardRangeParser().Match(shardRangeInput);
             if (m.Success) {
@@ -95,6 +93,7 @@ partial class Configuration {
         SqlDatabase = ReadConfKey<string?>(jc, nameof(SqlDatabase), false);
         SqlUsername = ReadConfKey<string>(jc, nameof(SqlUsername), true);
         SqlPassword = ReadConfKey<string>(jc, nameof(SqlPassword), true);
+        SqlApplicationName = $"Shard{ShardStart:00}-{ShardStart + ShardAmount - 1:00}";
 
         StatusInterval = ReadConfKey<int?>(jc, nameof(StatusInterval), false) ?? 90;
         MaxConcurrentOperations = ReadConfKey<int?>(jc, nameof(MaxConcurrentOperations), false) ?? 4;
