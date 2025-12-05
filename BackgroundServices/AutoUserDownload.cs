@@ -22,14 +22,8 @@ class AutoUserDownload : BackgroundService {
     }
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
-        
-        int processed;
-        try {
-            var mustFetch = CreateDownloadList();
-            processed = await ExecDownloadListAsync(mustFetch, token).ConfigureAwait(false);
-        } finally {
-            _dlGate.Release();
-        }
+        var mustFetch = CreateDownloadList();
+        _ = await ExecDownloadListAsync(mustFetch, token).ConfigureAwait(false);
     }
 
     // Consider guilds with incomplete member lists that have not previously had failed downloads,
