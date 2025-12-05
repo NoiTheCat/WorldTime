@@ -153,7 +153,7 @@ public class UserCommands : CommandsBase {
 
     [SlashCommand("set", HelpSet)]
     [CommandContextType(InteractionContextType.Guild)]
-    public async Task CmdSet([Summary(description: "The new time zone to set.")]string zone) {
+    public async Task CmdSet([Summary(description: "The new time zone to set."), Autocomplete<TzAutocompleteHandler>]string zone) {
         var parsedzone = ParseTimeZone(zone);
         if (parsedzone == null) {
             await RespondAsync(ErrInvalidZone, ephemeral: true);
