@@ -1,0 +1,27 @@
+<linker>
+  <assembly fullname="WorldTime">
+    <!-- Command handlers -->
+    <type fullname="WorldTime.Commands.ConfigCommands" preserve="all" />
+    <type fullname="WorldTime.Commands.UserCommands" preserve="all" />
+    <type fullname="WorldTime.Commands.TzAutocompleteHandler" preserve="all" />
+
+    <!-- Preserve attributes used by Discord.Net -->
+    <type fullname="Discord.Interactions.SlashCommandAttribute" preserve="all" />
+    <type fullname="Discord.Interactions.ComponentInteractionAttribute" preserve="all" />
+
+    <!-- Database entities -->
+    <!-- (TODO: refactor BotDatabaseContext to allow switch to compile-time code generation) -->
+    <namespace fullname="WorldTime.Data" preserve="all" />
+    <namespace fullname="WorldTime.Data.Migrations" preserve="all" />
+  </assembly>
+
+  <!-- Preserve EF Core attributes -->
+  <!-- (TODO: remove when BotDatabaseContext refactor is complete)-->
+  <assembly fullname="Microsoft.EntityFrameworkCore">
+    <type fullname="Microsoft.EntityFrameworkCore.Metadata.Builders.IndexAttribute" preserve="all" />
+    <type fullname="Microsoft.EntityFrameworkCore.OwnedAttribute" preserve="all" />
+    <type fullname="System.ComponentModel.DataAnnotations.KeyAttribute" preserve="all" />
+    <type fullname="System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute" preserve="all" />
+    <type fullname="System.ComponentModel.DataAnnotations.Schema.TableAttribute" preserve="all" />
+  </assembly>
+</linker>

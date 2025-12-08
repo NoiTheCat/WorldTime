@@ -20,9 +20,13 @@ public class BotDatabaseContext : DbContext {
     public DbSet<GuildConfiguration> GuildSettings { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+//#if !AOT
          => optionsBuilder
             .UseNpgsql(_connectionString)
             .UseSnakeCaseNamingConvention();
+//#endif
+    // .UseModel(Microsoft.EntityFrameworkCore.GeneratedModels.BotDatabaseContextModel.Instance)
+    // TODO must refactor to do proper configuration loading before code generation can be used
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         modelBuilder.Entity<UserEntry>().HasKey(e => new { e.GuildId, e.UserId }).HasName("userdata_pkey");

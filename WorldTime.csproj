@@ -39,8 +39,29 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <DefaultItemExcludes>Docs/**;$(DefaultItemExcludes)</DefaultItemExcludes>
+  <!-- AOT compilation -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="ILLink.Descriptor.xml" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugAOT|AnyCPU'">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DefineConstants>DEBUG;AOT;TRACE</DefineConstants>
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseAOT|AnyCPU'">
+    <!-- remember to "publish", not "build" -->
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <StripSymbols>true</StripSymbols>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+
+    <DefineConstants>AOT</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='TrimTest|AnyCPU'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>link</TrimMode>
   </PropertyGroup>
 
 </Project>
