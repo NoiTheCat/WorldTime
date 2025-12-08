@@ -1,5 +1,7 @@
 <linker>
   <assembly fullname="WorldTime">
+    <type fullname="WorldTime.Configuration+CommandLineParameters" preserve="all" />
+
     <!-- Command handlers -->
     <type fullname="WorldTime.Commands.ConfigCommands" preserve="all" />
     <type fullname="WorldTime.Commands.UserCommands" preserve="all" />
