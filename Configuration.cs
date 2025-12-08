@@ -1,5 +1,4 @@
-﻿using CommandLine;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -48,7 +47,7 @@ partial class Configuration {
     public bool LogConnectionStatus { get; init; }
 
     public Configuration() {
-        var args = CommandLineParameters.Parse(Environment.GetCommandLineArgs());
+        var args = CmdlineParser.Parse(Environment.GetCommandLineArgs());
         var path = args?.ConfigFile ?? Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)
             + Path.DirectorySeparatorChar + "." + Path.DirectorySeparatorChar + "settings.json";
 
@@ -105,29 +104,5 @@ partial class Configuration {
         if (jc.ContainsKey(key)) return jc[key]!.Value<T>();
         if (failOnEmpty) throw new Exception($"'{key}' must be specified.");
         return default;
-    }
-
-    class CommandLineParameters {
-        [Option('c', "config")]
-        public string? ConfigFile { get; set; }
-
-        [Option("shardtotal")]
-        public int? ShardTotal { get; set; }
-
-        [Option("shardrange")]
-        public string? ShardRange { get; set; }
-
-        public static CommandLineParameters? Parse(string[] args) {
-            CommandLineParameters? result = null;
-
-            new Parser(settings => {
-                settings.IgnoreUnknownArguments = true;
-                settings.AutoHelp = false;
-                settings.AutoVersion = false;
-            }).ParseArguments<CommandLineParameters>(args)
-                .WithParsed(p => result = p)
-                .WithNotParsed(e => { /* ignore */ });
-            return result;
-        }
     }
 }
