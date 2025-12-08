@@ -1,5 +1,6 @@
 <linker>
   <assembly fullname="WorldTime">
+    <type fullname="WorldTime.CmdlineParser" preserve="all" />
 
     <!-- Command handlers -->
     <type fullname="WorldTime.Commands.ConfigCommands" preserve="all" />

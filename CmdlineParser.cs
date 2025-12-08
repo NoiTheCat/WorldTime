@@ -11,6 +11,11 @@ class CmdlineParser {
     [Option("shardrange")]
     public string? ShardRange { get; set; }
 
+#if AOT
+    // Explicit public constructor
+    public CmdlineParser() { }
+#endif
+
     internal static CmdlineParser? Parse(string[] args) {
         CmdlineParser? result = null;
 
