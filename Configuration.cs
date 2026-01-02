@@ -28,6 +28,13 @@ partial class Configuration {
     public string SqlPassword { get; }
     internal string SqlApplicationName { get; }
 
+    public string SqlConnectionString => new Npgsql.NpgsqlConnectionStringBuilder() {
+        Host = SqlHost ?? "localhost", // default to localhost
+        Database = SqlDatabase,
+        Username = SqlUsername,
+        Password = SqlPassword
+    }.ToString();
+
     /// <summary>
     /// Number of seconds between each time the status task runs, in seconds.
     /// </summary>

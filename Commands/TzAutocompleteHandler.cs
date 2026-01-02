@@ -36,7 +36,13 @@ public class TzAutocompleteHandler : AutocompleteHandler {
             .ToHashSet();
 
         // List of zones by current popularity
-        var db = new BotDatabaseContext();
+        // TODO Better implementation needed. Hack: Re-read the config to get to the database when rebuilding list.
+        // Non-zero chance of crashing if edited during runtime!
+        using var db = new BotDatabaseContext(
+            new DbContextOptionsBuilder<BotDatabaseContext>()
+            .UseNpgsql(new Configuration().SqlConnectionString)
+            .UseSnakeCaseNamingConvention()
+            .Options);
         var tzPopCount = db.UserEntries.AsNoTracking()
             .GroupBy(u => u.TimeZone)
             .Select(g => new { ZoneName = g.Key, Count = g.Count() })

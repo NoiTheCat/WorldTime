@@ -2,6 +2,7 @@ global using Discord;
 global using Discord.WebSocket;
 using System.Text;
 using Discord.Interactions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using WorldTime.Data;
 
@@ -80,7 +81,10 @@ class ShardManager : IDisposable {
             .AddSingleton(s => new ShardInstance(this, s))
             .AddSingleton(s => new DiscordSocketClient(clientConf))
             .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordSocketClient>()))
-            .AddTransient(typeof(BotDatabaseContext))
+            .AddDbContext<BotDatabaseContext>(options => {
+                options.UseNpgsql(Config.SqlConnectionString);
+                options.UseSnakeCaseNamingConvention();
+            })
             .BuildServiceProvider();
         var newInstance = services.GetRequiredService<ShardInstance>();
         await newInstance.StartAsync().ConfigureAwait(false);
