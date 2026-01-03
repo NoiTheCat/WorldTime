@@ -1,25 +1,30 @@
 ﻿using System.Runtime.InteropServices;
+using WorldTime.Config;
 
 namespace WorldTime;
 class Program {
     private static ShardManager _bot = null!;
     private static readonly DateTimeOffset _botStartTime = DateTimeOffset.UtcNow;
+    
+    // Workaround for TzAutocompleteHandler needing this in a static method
+    internal static string SqlConnectionString { get; private set; } = null!;
 
     /// <summary>
     /// Returns the amount of time the program has been running in a human-readable format.
     /// </summary>
     public static string BotUptime => (DateTimeOffset.UtcNow - _botStartTime).ToString("d' days, 'hh':'mm':'ss");
 
-    static async Task Main() {
-        Configuration? cfg = null;
+    static async Task<int> Main(string[] args) {
+        ConfigurationLoader cfg = null!;
         try {
-            cfg = new Configuration();
+            cfg = new ConfigurationLoader(args);
         } catch (Exception ex) {
-            Console.WriteLine(ex);
-            Environment.Exit(2);
+            Console.WriteLine("Configuration error:" + ex.Message);
+            return 2;
         }
 
-        _bot = new ShardManager(cfg);
+        SqlConnectionString = cfg.GetConnectionString();
+        _bot = new ShardManager(cfg.Config);
         
         Console.CancelKeyPress += static (s, e) => {
             e.Cancel = true;
@@ -36,6 +41,7 @@ class Program {
 
         await _shutdownBlock.Task;
         Log(nameof(WorldTime), $"Shutdown complete. Uptime: {BotUptime}");
+        return 0;
     }
 
     /// <summary>

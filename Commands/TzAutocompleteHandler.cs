@@ -3,6 +3,7 @@ using WorldTime.Data;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using WorldTime.Config;
 
 namespace WorldTime.Commands;
 public class TzAutocompleteHandler : AutocompleteHandler {
@@ -36,11 +37,9 @@ public class TzAutocompleteHandler : AutocompleteHandler {
             .ToHashSet();
 
         // List of zones by current popularity
-        // TODO Better implementation needed. Hack: Re-read the config to get to the database when rebuilding list.
-        // Non-zero chance of crashing if edited during runtime!
         using var db = new BotDatabaseContext(
             new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(new Configuration().SqlConnectionString)
+            .UseNpgsql(Program.SqlConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options);
         var tzPopCount = db.UserEntries.AsNoTracking()

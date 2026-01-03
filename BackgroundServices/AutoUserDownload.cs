@@ -36,7 +36,7 @@ class AutoUserDownload : BackgroundService {
                 .ToHashSet();
         // ...where some user data exists.
         using var db = new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(Shard.Config.SqlConnectionString)
+            .UseNpgsql(Program.SqlConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options);
         return [.. db.UserEntries.AsNoTracking()

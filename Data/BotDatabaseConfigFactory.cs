@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using WorldTime.Config;
 
 namespace WorldTime.Data;
 public class BotDatabaseContextFactory : IDesignTimeDbContextFactory<BotDatabaseContext> {
     // Used by EF Core tools for migrations, etc.
     public BotDatabaseContext CreateDbContext(string[] args) {
-        // ignore args parameter - Configuration constructor handles it
-        var conf = new Configuration();
+        var conf = new ConfigurationLoader(args);
 
         var opts = new DbContextOptionsBuilder<BotDatabaseContext>();
-        opts.UseNpgsql(conf.SqlConnectionString);
+        opts.UseNpgsql(conf.GetConnectionString());
         opts.UseSnakeCaseNamingConvention();
 
         return new BotDatabaseContext(opts.Options);

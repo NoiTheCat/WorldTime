@@ -36,7 +36,7 @@ class ExternalStatisticsReporting : BackgroundService {
             var post = new HttpRequestMessage(HttpMethod.Post, uri);
             post.Headers.Add("Authorization", apiToken);
             post.Content = new StringContent(string.Format(Body,
-                userCount, Shard.Config.ShardTotal, Shard.ShardId),
+                userCount, Shard.Config.Sharding.Total, Shard.ShardId),
                 Encoding.UTF8, "application/json");
 
             await _httpClient.SendAsync(post, token);
