@@ -1,0 +1,8 @@
+.git
+.gitignore
+**/bin
+**/obj
+.vscode
+scripts
+schema
+.forgejo
