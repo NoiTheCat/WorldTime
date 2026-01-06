@@ -8,8 +8,9 @@ public partial class Sharding {
     [DefaultValue(0)]
     public int StartId { get; set; } = 0;
 
-    [Description("Total amount of shards this instance will host, starting at StartId and ending at StartId + Amount - 1.")]
+    [Description("Total amount of shards this instance will host, beginning with StartId.")]
     [DefaultValue(1)]
+    // TODO adapt to Total if not defined
     public int Amount { get; set; } = 1;
 
     [Description("Total amount of shards run by the bot. MUST be the same across instances.")]
