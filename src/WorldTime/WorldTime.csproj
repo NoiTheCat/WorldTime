@@ -4,6 +4,7 @@
     <Version>3.1.0</Version>
     <Authors>NoiTheCat</Authors>
     <OutputType>Exe</OutputType>
+    <RootNamespace>WorldTime</RootNamespace>
 
     <!-- Uses only English language resources (needed by dependencies) -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
@@ -27,7 +28,6 @@
 
   <!-- WHEN UPDATING EF CORE: Don't forget to also run "dotnet tool update (dash dash)local dotnet-ef" -->
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Discord.Net" Version="3.18.0" />
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.0-rc.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />
@@ -35,16 +35,14 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageReference Include="NodaTime" Version="3.2.3" />
     <PackageReference Include="Npgsql" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <DefaultItemExcludes>Docs/**;$(DefaultItemExcludes)</DefaultItemExcludes>
-  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../WorldTime.Config/WorldTime.Config.csproj" />
+  </ItemGroup>
 
 </Project>

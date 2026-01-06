@@ -2,10 +2,11 @@
 using WorldTime.Config;
 
 namespace WorldTime;
+
 class Program {
     private static ShardManager _bot = null!;
     private static readonly DateTimeOffset _botStartTime = DateTimeOffset.UtcNow;
-    
+
     // Workaround for TzAutocompleteHandler needing this in a static method
     internal static string SqlConnectionString { get; private set; } = null!;
 
@@ -18,14 +19,15 @@ class Program {
         ConfigurationLoader cfg = null!;
         try {
             cfg = new ConfigurationLoader(args);
-        } catch (Exception ex) {
-            Console.WriteLine("Configuration error:" + ex.Message);
+        }
+        catch (Exception ex) {
+            Console.WriteLine("Configuration error: " + ex.Message);
             return 2;
         }
 
         SqlConnectionString = cfg.GetConnectionString();
         _bot = new ShardManager(cfg.Config);
-        
+
         Console.CancelKeyPress += static (s, e) => {
             e.Cancel = true;
             Log("Shutdown", "Caught Ctrl-C or SIGINT.");
@@ -66,7 +68,7 @@ class Program {
             Log("Shutdown", "Normal shutdown is taking too long. We're force-quitting.");
             Environment.Exit(1);
         }
-        
+
         Environment.ExitCode = 0;
         _shutdownBlock.SetResult(true);
     }

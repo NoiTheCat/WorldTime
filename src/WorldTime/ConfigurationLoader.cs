@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
+using WorldTime.Config;
 
-namespace WorldTime.Config;
+namespace WorldTime;
 
 class ConfigurationLoader {
     public Configuration Config { get; }

@@ -38,7 +38,7 @@ public class Configuration {
     [DefaultValue(true)]
     public bool LogConnectionStatus { get; set; } = true;
 
-    internal void Validate() {
+    public void Validate() {
         if (StatusInterval < 10) throw new Exception($"{nameof(StatusInterval)} must be 10 or more.");
         if (MaxConcurrentOperations < 1) throw new Exception($"{nameof(MaxConcurrentOperations)} must be 1 or more.");
         if (BackgroundInterval < 1) throw new Exception($"{nameof(BackgroundInterval)} must be 1 or more.");

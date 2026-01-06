@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WorldTime.Config;
 
-class CommandLineParser {
+public class CommandLineParser {
     [Option('c', "config")]
     public string? ConfigFile { get; set; }
 
