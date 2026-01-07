@@ -7,17 +7,18 @@ namespace WorldTime.Config;
 /// Root config class. Not to be confused with <seealso cref="ConfigurationLoader" />.
 /// </summary>
 public class Configuration {
-    [JsonRequired]
+    [JsonProperty(Required = Required.Always)]
     [Description("Discord application token.")]
     public string BotToken { get; set; } = null!;
 
     [Description("Token for submitting statistics to Discord Bots.")]
     public string? DBotsToken { get; set; } = null!;
 
-    [JsonRequired]
+    [JsonProperty(Required = Required.Always)]
     [Description("PostgreSQL database settings.")]
     public DatabaseSettings Database { get; set; } = new();
 
+    [JsonProperty(Required = Required.DisallowNull)]
     [Description("Defines how this instance will handle sharding.")]
     public Sharding Sharding { get; set; } = new();
 

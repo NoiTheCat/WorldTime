@@ -1,22 +1,27 @@
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace WorldTime.Config;
 
 public partial class Sharding {
+    [JsonProperty(Required = Required.DisallowNull)]
     [Description("The shard ID that this instance will initialize first.")]
     [DefaultValue(0)]
     public int StartId { get; set; } = 0;
 
+    [JsonProperty(Required = Required.DisallowNull)]
     [Description("Total amount of shards this instance will host, beginning with StartId.")]
     [DefaultValue(1)]
     // TODO adapt to Total if not defined
     public int Amount { get; set; } = 1;
 
+    [JsonProperty(Required = Required.DisallowNull)]
     [Description("Total amount of shards run by the bot. MUST be the same across instances.")]
     [DefaultValue(1)]
     public int Total { get; set; } = 1;
-    
+
+    [JsonProperty(Required = Required.DisallowNull)]
     [Description("The amount of shards to initialize at once. Discord usually limits this to 2 before enforcing rate limits.")]
     [DefaultValue(2)]
     public int Interval { get; set; } = 2;
