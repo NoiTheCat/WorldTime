@@ -13,25 +13,18 @@ You need:
 * PostgreSQL (https://www.postgresql.org/)
 * A Discord bot token (https://discord.com/developers/applications)
 
-Get your bot token and set up your database user and schema, then create a JSON file containing the following:
-```jsonc
-{
-    "BotToken": "your bot token here",
-    "SqlHost": "localhost", // optional
-    "SqlDatabase": "worldtime", // optional
-    "SqlUser": "worldtime", // required
-    "SqlPassword": "mypassword" // required; no other authentication methods are currently supported
-}
-```
+Edit `config.example.json` as needed and save it as `settings.json`.
 
-Then run the following commands:
+Set up the database and dependencies:
 ```sh
 $ dotnet restore
 $ dotnet tool restore
-$ dotnet ef database update -- -c path/to/config.json
+$ dotnet ef database update -- -c path/to/settings.json
 ```
 
-And finally, to run the bot:
+Build the executable:
 ```sh
-$ dotnet run -c Release -- -c path/to/config.json
+$ dotnet publish src/WorldTime/WorldTime.csproj -c Release -o . \
+    -p:PublishSingleFile=true -p:DebugType=None
 ```
+This will produce `WorldTime.exe` (Windows) or `WorldTime` (Linux/macOS). Place it wherever you like along with your `settings.json`. Requires .NET 10 runtime.

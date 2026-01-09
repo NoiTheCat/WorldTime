@@ -2,7 +2,9 @@ global using Discord;
 global using Discord.WebSocket;
 using System.Text;
 using Discord.Interactions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using WorldTime.Config;
 using WorldTime.Data;
 
 namespace WorldTime;
@@ -33,7 +35,7 @@ class ShardManager : IDisposable {
 
         // Allocate shards based on configuration
         _shards = [];
-        for (var i = Config.ShardStart; i < (Config.ShardStart + Config.ShardAmount); i++) {
+        for (var i = Config.Sharding.StartId; i < (Config.Sharding.StartId + Config.Sharding.Amount); i++) {
             _shards.Add(i, null);
         }
 
@@ -68,7 +70,7 @@ class ShardManager : IDisposable {
     private async Task<ShardInstance> InitializeShard(int shardId) {
         var clientConf = new DiscordSocketConfig() {
             ShardId = shardId,
-            TotalShards = Config.ShardTotal,
+            TotalShards = Config.Sharding.Total,
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
             GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
@@ -80,7 +82,10 @@ class ShardManager : IDisposable {
             .AddSingleton(s => new ShardInstance(this, s))
             .AddSingleton(s => new DiscordSocketClient(clientConf))
             .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordSocketClient>()))
-            .AddTransient(typeof(BotDatabaseContext))
+            .AddDbContext<BotDatabaseContext>(options => {
+                options.UseNpgsql(Program.SqlConnectionString);
+                options.UseSnakeCaseNamingConvention();
+            })
             .BuildServiceProvider();
         var newInstance = services.GetRequiredService<ShardInstance>();
         await newInstance.StartAsync().ConfigureAwait(false);
@@ -99,7 +104,7 @@ class ShardManager : IDisposable {
     private async Task StatusLoop() {
         try {
             while (!_mainCancel.IsCancellationRequested) {
-                var startAllowance = Config.ShardStartInterval;
+                var startAllowance = Config.Sharding.Interval;
 
                 // Iterate through shards, create report on each
                 var shardStatuses = new StringBuilder();

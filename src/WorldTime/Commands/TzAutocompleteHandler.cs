@@ -3,6 +3,7 @@ using WorldTime.Data;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using WorldTime.Config;
 
 namespace WorldTime.Commands;
 public class TzAutocompleteHandler : AutocompleteHandler {
@@ -36,7 +37,11 @@ public class TzAutocompleteHandler : AutocompleteHandler {
             .ToHashSet();
 
         // List of zones by current popularity
-        var db = new BotDatabaseContext();
+        using var db = new BotDatabaseContext(
+            new DbContextOptionsBuilder<BotDatabaseContext>()
+            .UseNpgsql(Program.SqlConnectionString)
+            .UseSnakeCaseNamingConvention()
+            .Options);
         var tzPopCount = db.UserEntries.AsNoTracking()
             .GroupBy(u => u.TimeZone)
             .Select(g => new { ZoneName = g.Key, Count = g.Count() })

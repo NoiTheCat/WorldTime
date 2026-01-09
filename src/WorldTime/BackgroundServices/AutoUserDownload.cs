@@ -34,7 +34,11 @@ class AutoUserDownload : BackgroundService {
                 .Where(g => !_skippedGuilds.Contains(g.Id)) // that have not previously failed during this connection, and...
                 .Select(g => g.Id)
                 .ToHashSet();
-        using var db = new BotDatabaseContext();            // ...where some user data exists.
+        // ...where some user data exists.
+        using var db = new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
+            .UseNpgsql(Program.SqlConnectionString)
+            .UseSnakeCaseNamingConvention()
+            .Options);
         return [.. db.UserEntries.AsNoTracking()
                                  .Where(e => incompleteCaches.Contains(e.GuildId))
                                  .Select(e => e.GuildId)

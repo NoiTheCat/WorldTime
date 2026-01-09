@@ -2,6 +2,7 @@ using WorldTime.BackgroundServices;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using WorldTime.Config;
 
 namespace WorldTime;
 /// <summary>
@@ -76,7 +77,7 @@ public sealed class ShardInstance : IDisposable {
     private Task Client_Log(LogMessage arg) {
         // Suppress certain messages
         if (arg.Message != null) {
-            if (!_manager.Config.LogConnectionStatus) {
+            if (!Config.LogConnectionStatus) {
                 switch (arg.Message) {
                     case "Connecting":
                     case "Connected":
@@ -93,7 +94,7 @@ public sealed class ShardInstance : IDisposable {
         }
 
         if (arg.Exception != null) {
-            if (!_manager.Config.LogConnectionStatus) {
+            if (!Config.LogConnectionStatus) {
                 if (arg.Exception is GatewayReconnectException || arg.Exception.Message == "WebSocket connection was closed")
                     return Task.CompletedTask;
             }
