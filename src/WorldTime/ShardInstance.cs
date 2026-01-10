@@ -126,7 +126,7 @@ public sealed class ShardInstance : IDisposable {
 #else
         // Update slash/interaction commands
         if (ShardId == 0) {
-            var ia = new Discord.Interactions.InteractionService()
+            var ia = new Discord.Interactions.InteractionService(DiscordClient);
             await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
             await ia.RegisterCommandsGloballyAsync(true);
             Log(nameof(ShardInstance), "Updated global command registration.");
