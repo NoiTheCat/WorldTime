@@ -1,7 +1,8 @@
-using WorldTime.BackgroundServices;
+using System.Reflection;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
-using System.Reflection;
+using WorldTime.BackgroundServices;
+using WorldTime.Caching;
 using WorldTime.Config;
 
 namespace WorldTime;
@@ -25,6 +26,7 @@ public sealed class ShardInstance : IDisposable {
     /// </summary>
     internal string? CurrentExecutingService => _background.CurrentExecutingService;
     internal Configuration Config => _manager.Config;
+    internal UserCache Cache => _manager.Cache;
 
     public const string InternalError = ":x: An unknown error occurred. If it persists, please notify the bot owner.";
 

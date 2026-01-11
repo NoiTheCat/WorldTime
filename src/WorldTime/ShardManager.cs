@@ -4,6 +4,7 @@ using System.Text;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using WorldTime.Caching;
 using WorldTime.Config;
 using WorldTime.Data;
 
@@ -27,11 +28,14 @@ class ShardManager : IDisposable {
 
     internal Configuration Config { get; }
 
+    internal UserCache Cache { get; }
+
     public ShardManager(Configuration cfg) {
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         Log($"World Time v{ver!.ToString(3)} is starting...");
 
         Config = cfg;
+        Cache = new();
 
         // Allocate shards based on configuration
         _shards = [];
@@ -73,14 +77,15 @@ class ShardManager : IDisposable {
             TotalShards = Config.Sharding.Total,
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
+            GatewayIntents = GatewayIntents.Guilds,
             SuppressUnknownDispatchWarnings = true,
             LogGatewayIntentWarnings = false,
             FormatUsersInBidirectionalUnicode = false
         };
         var services = new ServiceCollection()
+            .AddSingleton(_uCache)
             .AddSingleton(s => new ShardInstance(this, s))
-            .AddSingleton(s => new DiscordSocketClient(clientConf))
+            .AddSingleton(new DiscordSocketClient(clientConf))
             .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordSocketClient>()))
             .AddDbContext<BotDatabaseContext>(options => {
                 options.UseNpgsql(Program.SqlConnectionString);

@@ -12,7 +12,7 @@ public class UserCache {
         guild[info.UserId] = info;
     }
 
-    public bool TryGetGuildUsers(ulong guildId, [NotNullWhen(true)] out ICollection<ulong>? userIds) {
+    public bool TryGetGuildUsers(ulong guildId, [NotNullWhen(true)] out HashSet<ulong>? userIds) {
         userIds = null;
         if (!_cache.TryGetValue(guildId, out var uinfos)) return false;
         userIds = [.. uinfos.Keys];
