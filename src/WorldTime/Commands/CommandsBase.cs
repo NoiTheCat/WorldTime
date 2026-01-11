@@ -1,9 +1,9 @@
-using Discord.Interactions;
-using NodaTime;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using Discord.Interactions;
+using NodaTime;
+using WorldTime.Caching;
 using WorldTime.Data;
 
 namespace WorldTime.Commands;
@@ -20,10 +20,16 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         _tzNameMap = new(tzNameMap);
     }
 
-    [NotNull]
-    public ShardInstance? Shard { get; set; }
-    [NotNull]
-    public BotDatabaseContext? DbContext { get; set; }
+    // Injected by DI:
+    public ShardInstance Shard { get; set; } = null!;
+    public BotDatabaseContext DbContext { get; set; } = null!;
+    public UserCache Cache { get; set; } = null!;
+
+    // Opportunistically caches user data coming in via interactions.
+    public override Task BeforeExecuteAsync(ICommandInfo command) {
+        UpdateUserCacheEntry(Context.User as SocketGuildUser);
+        return base.BeforeExecuteAsync(command);
+    }
 
     /// <summary>
     /// Returns a string displaying the current time in the given time zone.
@@ -54,6 +60,7 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     /// <summary>
     /// Formats a user's name to a consistent, readable format which makes use of their nickname.
     /// </summary>
+    [Obsolete]
     protected static string FormatName(SocketGuildUser user) {
         static string escapeFormattingCharacters(string input) {
             var result = new StringBuilder();
@@ -91,6 +98,7 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     /// <returns>
     /// True if the guild's members are already downloaded. If false, the command handler must notify the user.
     /// </returns>
+    [Obsolete]
     protected static async Task<bool> AreUsersDownloadedAsync(SocketGuild guild) {
         static bool HasMostMembersDownloaded(SocketGuild guild) {
             if (guild.HasAllMembers) return true;
@@ -109,5 +117,22 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
             await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Adds/refreshes the given user to the bot's lightweight user cache.
+    /// </summary>
+    /// <remarks>
+    /// To be called when additional user data becomes known by, for example, user parameters to commands.
+    /// </remarks>
+    protected void UpdateUserCacheEntry(SocketGuildUser? user) {
+        if (user is null) return;
+        Cache.Update(new UserInfo {
+            GuildId = user.Guild.Id,
+            UserId = user.Id,
+            Username = user.Username,
+            GlobalName = user.GlobalName,
+            GuildNickname = user.Nickname
+        });
     }
 }
