@@ -1,48 +1,45 @@
-﻿using WorldTime.Data;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using WorldTime.Data;
 
 namespace WorldTime.BackgroundServices;
 /// <summary>
-/// Selectively fills the user cache without overwhelming memory, database, or network resources.
+/// Selectively fills and refreshes the locally-managed user cache on a periodic basis.
 /// </summary>
-class AutoUserDownload : BackgroundService {
+class AutoUserDownload(ShardInstance instance) : BackgroundService(instance) {
     private static readonly SemaphoreSlim _dlGate = new(3);
-    private const int GCCallThreshold = 300; // TODO make configurable or do further testing
-    private static readonly SemaphoreSlim _gcGate = new(1);
-    private static int _jobCount = 0;
-
-    private readonly HashSet<ulong> _skippedGuilds = [];
-
-    public AutoUserDownload(ShardInstance instance) : base(instance)
-        => Shard.DiscordClient.Disconnected += OnDisconnect;
-
-    private Task OnDisconnect(Exception ex) {
-        _skippedGuilds.Clear();
-        return Task.CompletedTask;
-    }
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
-        var mustFetch = CreateDownloadList();
+        // TODO logic for per-shard staggering (maybe take from bb->retention)
+
+        var missingFromCache = CreateDownloadList();
         _ = await ExecDownloadListAsync(mustFetch, token).ConfigureAwait(false);
     }
 
-    // Consider guilds with incomplete member lists that have not previously had failed downloads,
-    // and where user-specific configuration exists.
-    private HashSet<ulong> CreateDownloadList() {
-        var incompleteCaches = Shard.DiscordClient.Guilds
-                .Where(g => !g.HasAllMembers)               // Consider guilds with incomplete caches,
-                .Where(g => !_skippedGuilds.Contains(g.Id)) // that have not previously failed during this connection, and...
-                .Select(g => g.Id)
-                .ToHashSet();
-        // ...where some user data exists.
+    // Consider guild users that have existing configuration but are not in our cache.
+    private Dictionary<ulong, List<ulong>> CreateDownloadList() {
         using var db = new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
             .UseNpgsql(Program.SqlConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options);
-        return [.. db.UserEntries.AsNoTracking()
-                                 .Where(e => incompleteCaches.Contains(e.GuildId))
-                                 .Select(e => e.GuildId)
-                                 .Distinct()];
+
+        var guilds = Shard.DiscordClient.Guilds.Select(g => g.Id);
+
+        var dbUsers = db.UserEntries.AsNoTracking()
+            .Where(u => guilds.Contains(u.GuildId))
+            .Select(v => new { v.GuildId, v.UserId })
+            .GroupBy(g => g.GuildId)
+            .ToDictionary(k => k.Key, v => v.Select(g => g.UserId).ToList());
+
+        var result = new Dictionary<ulong, List<ulong>>();
+        foreach (var (guild, dbUserEntries) in dbUsers) {
+            if (!Shard.Cache.TryGetGuildUsers(guild, out var inCache)) {
+                // our cache is empty - fetch them all
+                result[guild] = dbUserEntries;
+            } else {
+                result[guild] = [.. dbUserEntries.Except(inCache)];
+            }
+        }
+        return result;
     }
 
     private async Task<int> ExecDownloadListAsync(HashSet<ulong> mustFetch, CancellationToken token) {
@@ -82,25 +79,5 @@ class AutoUserDownload : BackgroundService {
             await Task.Yield();
         }
         return processed;
-    }
-
-    // Manages manual invocation of garbage collector.
-    // Consecutive calls to DownloadUsersAsync inevitably causes a lot of slightly-less-than-temporary items to be held by the CLR,
-    // and this adds up with hundreds of thousands of users. Alternate methods have been explored, but this so far has proven to be
-    // the most stable, reliable, and quickest of them.
-    private void ConsiderGC() {
-        if (Interlocked.Increment(ref _jobCount) > GCCallThreshold) {
-            if (_gcGate.Wait(0)) { // prevents repeated calls across threads
-                try {
-                    var before = GC.GetTotalMemory(forceFullCollection: false);
-                    GC.Collect(2, GCCollectionMode.Forced, true, true);
-                    var after = GC.GetTotalMemory(forceFullCollection: true);
-                    Log($"Threshold reached. GC reclaimed {before - after:N0} bytes.");
-                    Interlocked.Exchange(ref _jobCount, 0);
-                } finally {
-                    _gcGate.Release();
-                }
-            }
-        }
     }
 }
