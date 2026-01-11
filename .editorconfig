@@ -34,6 +34,7 @@ csharp_style_namespace_declarations = file_scoped:suggestion
 
 #### Formatting ####
 csharp_new_line_before_open_brace = none
+csharp_new_line_before_else = false
 csharp_space_around_binary_operators = before_and_after
 csharp_preserve_single_line_blocks = true
 csharp_preserve_single_line_statements = true

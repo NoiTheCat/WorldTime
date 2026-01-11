@@ -1,4 +1,5 @@
 using Discord.Interactions;
+using WorldTime.Caching;
 
 namespace WorldTime.Commands;
 [Group("config", "Configuration commands for World Time.")]
@@ -45,6 +46,7 @@ public class ConfigCommands : CommandsBase {
     [SlashCommand("set-for", HelpSetFor)]
     public async Task CmdSetFor([Summary(description: "The user whose time zone to modify.")] SocketGuildUser user,
                                  [Summary(description: "The new time zone to set.")] string zone) {
+        Cache.Update(UserInfo.CreateFrom(user));
         using var db = DbContext;
         // Extract parameters
         var newtz = ParseTimeZone(zone);
@@ -61,6 +63,7 @@ public class ConfigCommands : CommandsBase {
 
     [SlashCommand("remove-for", HelpRemoveFor)]
     public async Task CmdRemoveFor([Summary(description: "The user whose time zone to remove.")] SocketGuildUser user) {
+        Cache.Update(UserInfo.CreateFrom(user));
         using var db = DbContext;
         if (db.DeleteUser(user))
             await RespondAsync($":white_check_mark: Removed zone information for {user}.").ConfigureAwait(false);

@@ -4,6 +4,7 @@ using System.Text;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using WorldTime.Caching;
 using WorldTime.Config;
 using WorldTime.Data;
 
@@ -27,11 +28,14 @@ class ShardManager : IDisposable {
 
     internal Configuration Config { get; }
 
+    internal UserCache Cache { get; }
+
     public ShardManager(Configuration cfg) {
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         Log($"World Time v{ver!.ToString(3)} is starting...");
 
         Config = cfg;
+        Cache = new();
 
         // Allocate shards based on configuration
         _shards = [];
@@ -73,14 +77,16 @@ class ShardManager : IDisposable {
             TotalShards = Config.Sharding.Total,
             LogLevel = LogSeverity.Info,
             DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
+            GatewayIntents = GatewayIntents.Guilds,
             SuppressUnknownDispatchWarnings = true,
             LogGatewayIntentWarnings = false,
             FormatUsersInBidirectionalUnicode = false
         };
         var services = new ServiceCollection()
+            .AddSingleton(Cache)
             .AddSingleton(s => new ShardInstance(this, s))
-            .AddSingleton(s => new DiscordSocketClient(clientConf))
+            .AddSingleton(new DiscordSocketClient(clientConf))
+            // TODO InteractionService can be an app-wide singleton?
             .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordSocketClient>()))
             .AddDbContext<BotDatabaseContext>(options => {
                 options.UseNpgsql(Program.SqlConnectionString);
@@ -127,6 +133,7 @@ class ShardManager : IDisposable {
                     // TODO look into better connection checking options. ConnectionState is not reliable.
                     shardStatuses.Append($"{Enum.GetName(typeof(ConnectionState), client.ConnectionState)} ({client.Latency:000}ms).");
                     shardStatuses.Append($" G: {client.Guilds.Count:0000},");
+                    // TODO no longer a useful value
                     shardStatuses.Append($" U: {client.Guilds.Sum(s => s.Users.Count):000000},");
                     shardStatuses.Append($" BG: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;

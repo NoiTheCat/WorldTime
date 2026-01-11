@@ -1,5 +1,5 @@
-﻿using Discord.Interactions;
-using System.Text;
+﻿using System.Text;
+using Discord.Interactions;
 
 namespace WorldTime.Commands;
 public class UserCommands : CommandsBase {
@@ -52,6 +52,8 @@ public class UserCommands : CommandsBase {
     [SlashCommand("list", HelpList)]
     [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
+        UpdateUserCacheEntry(user);
+
         if (!await AreUsersDownloadedAsync(Context.Guild)) {
             await RespondAsync(ErrNoUserCache, ephemeral: true);
             return;
