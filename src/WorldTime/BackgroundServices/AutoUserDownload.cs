@@ -6,17 +6,29 @@ namespace WorldTime.BackgroundServices;
 /// Selectively fills and refreshes the locally-managed user cache on a periodic basis.
 /// </summary>
 class AutoUserDownload(ShardInstance instance) : BackgroundService(instance) {
-    private static readonly SemaphoreSlim _dlGate = new(3);
+    // Assuming a limit of 50 requests per second, and that the bot's doing other things
+    // at the same time as this executes.
+    // Rate limits are handled by the library - this service just waits if one is encountered.
+    private static readonly SemaphoreSlim _downloadGate = new(20);
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
-        // TODO logic for per-shard staggering (maybe take from bb->retention)
+        Shard.Cache.Sweep();
+        var missingFromCache = BuildShardDownloadList();
 
-        var missingFromCache = CreateDownloadList();
-        _ = await ExecDownloadListAsync(mustFetch, token).ConfigureAwait(false);
+        foreach (var (guildId, users) in missingFromCache) {
+            var guild = Shard.DiscordClient.GetGuild(guildId);
+            if (guild is null) continue;
+            foreach (var chunk in users.Chunk(500)) {
+                await RetrieveGuildUserBatchAsync(guild, chunk, token);
+                token.ThrowIfCancellationRequested();
+                await Task.Yield();
+            }
+        }
     }
 
     // Consider guild users that have existing configuration but are not in our cache.
-    private Dictionary<ulong, List<ulong>> CreateDownloadList() {
+    // Considers all guilds in this shard at once.
+    private Dictionary<ulong, List<ulong>> BuildShardDownloadList() {
         using var db = new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
             .UseNpgsql(Program.SqlConnectionString)
             .UseSnakeCaseNamingConvention()
@@ -42,42 +54,29 @@ class AutoUserDownload(ShardInstance instance) : BackgroundService(instance) {
         return result;
     }
 
-    private async Task<int> ExecDownloadListAsync(HashSet<ulong> mustFetch, CancellationToken token) {
-        var processed = 0;
-        foreach (var item in mustFetch) {
-            await _dlGate.WaitAsync(token).ConfigureAwait(false);
+    internal Task RetrieveGuildUserBatchAsync(SocketGuild g, IReadOnlyList<ulong> users, CancellationToken token) {
+        var tasks = users.Select(async u => {
+            await _downloadGate.WaitAsync(token);
             try {
-                // We're useless if not connected
-                if (Shard.DiscordClient.ConnectionState != ConnectionState.Connected) break;
-
-                SocketGuild? guild = null;
-                guild = Shard.DiscordClient.GetGuild(item);
-                if (guild == null) continue; // Guild disappeared between filtering and now
-                if (guild.HasAllMembers) continue; // Download likely already invoked by user input
-
-                var dl = guild.DownloadUsersAsync();
-                if (await Task.WhenAny(dl, Task.Delay(30_000, token)) != dl) {
-                    if (!dl.IsCompletedSuccessfully) {
-                        Log($"Task taking too long, will skip monitoring (G: {guild.Id}, U: {guild.MemberCount}).");
-                        _skippedGuilds.Add(guild.Id);
-                        continue;
-                    }
+                var incoming = await Shard.DiscordClient.Rest
+                    .GetGuildUserAsync(g.Id, u, new RequestOptions { CancelToken = token });
+                // incoming may be null.
+                // if so, it's stale config. 
+                // TODO how to deal with it?
+                if (incoming is not null) {
+                    Shard.Cache.Update(new Caching.UserInfo {
+                        GuildId = incoming.GuildId,
+                        UserId = incoming.Id,
+                        Username = incoming.Username,
+                        GlobalName = incoming.GlobalName,
+                        GuildNickname = incoming.Nickname
+                    });
                 }
-                if (dl.IsFaulted) {
-                    Log("Exception thrown by download task: " + dl.Exception);
-                    break;
-                }
+                await Task.Delay(100);
             } finally {
-                _dlGate.Release();
+                _downloadGate.Release();
             }
-            processed++;
-            ConsiderGC();
-            if (token.IsCancellationRequested) break;
-
-            // This loop can last a very long time on startup.
-            // Avoid starving other tasks.
-            await Task.Yield();
-        }
-        return processed;
+        });
+        return Task.WhenAll(tasks);
     }
 }
