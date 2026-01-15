@@ -27,15 +27,20 @@ public sealed class ShardInstance : IDisposable {
     /// <summary>
     /// Prepares and configures the shard instances, but does not yet start its connection.
     /// </summary>
-    internal ShardInstance(ShardManager manager, IServiceProvider localServices) {
-        _manager = manager;
+    internal ShardInstance(ShardManager? manager, IServiceProvider localServices) {
         _services = localServices;
         Cache = _services.GetRequiredService<UserCache>();
-
         DiscordClient = _services.GetRequiredService<DiscordSocketClient>();
+        if (manager is null) {
+            // This is a dummy instance for InteractionService early init
+            _manager = null!;
+            _background = null!;
+            return;
+        }
+        _manager = manager;
+        
         DiscordClient.Log += Client_Log;
         DiscordClient.Ready += Client_Ready;
-
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
         _manager.Interactions.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
         _manager.Interactions.Log += Client_Log;
@@ -109,7 +114,7 @@ public sealed class ShardInstance : IDisposable {
             return;
         } else {
             var ia = new InteractionService(DiscordClient);
-            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), null).ConfigureAwait(false);
+            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
             foreach (var g in DiscordClient.Guilds) {
                 await ia.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
                 Log(nameof(ShardInstance), $"Updated DEBUG command registration in guild {g.Id}.");
@@ -119,8 +124,8 @@ public sealed class ShardInstance : IDisposable {
         // Update slash/interaction commands
         if (ShardId == 0) {
             var ia = new Discord.Interactions.InteractionService()
-            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), null).ConfigureAwait(false);
-            await _interactionService.RegisterCommandsGloballyAsync(true);
+            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
+            await ia.RegisterCommandsGloballyAsync(true);
             Log(nameof(ShardInstance), "Updated global command registration.");
         }
 #endif

@@ -28,9 +28,17 @@ class ShardManager : IDisposable {
         Log($"World Time v{ver!.ToString(3)} is starting...");
         Config = cfg;
 
-        // Early InteractionService init with dummy client and no global service provider
-        Interactions = new(new DiscordSocketClient(), null);
-        Interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), null).Wait();
+        // Early InteractionService init with dummy client and services
+        // Only required on command registration and first-time module analysis, respectively
+        var dummyclient = new DiscordSocketClient();
+        Interactions = new(dummyclient);
+        var dummysvcs = new ServiceCollection()
+            .AddSingleton(s => new ShardInstance(null, s))
+            .AddSingleton(new UserCache())
+            .AddSingleton(dummyclient)
+            .AddDbContext<BotDatabaseContext>(_ => { })
+            .BuildServiceProvider();
+        Interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), dummysvcs).Wait();
 
         // Allocate shards based on configuration
         _shards = [];
