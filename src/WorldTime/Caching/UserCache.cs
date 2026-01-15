@@ -6,6 +6,9 @@ namespace WorldTime.Caching;
 public sealed class UserCache {
     private readonly ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, UserInfo>> _cache = new();
 
+    public int GuildsCount => _cache.Count;
+    public int UsersCount => _cache.Values.Sum(v => v.Count);
+    
     public void Update(UserInfo info) {
         var guild = _cache.GetOrAdd(info.GuildId, _ => new());
         guild[info.UserId] = info;
