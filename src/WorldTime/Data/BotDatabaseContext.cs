@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 
 namespace WorldTime.Data;
-public class BotDatabaseContext(DbContextOptions<BotDatabaseContext> options) : DbContext(options) {
+
+public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> options) : DbContext(options) {
     public DbSet<UserEntry> UserEntries { get; set; } = null!;
     public DbSet<GuildConfiguration> GuildSettings { get; set; } = null!;
 

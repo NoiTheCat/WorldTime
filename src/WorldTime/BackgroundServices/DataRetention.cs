@@ -18,7 +18,7 @@ class DataRetention : BackgroundService {
 
         await DatabaseAccessSemaphore.WaitAsync(token);
         try {
-            await RemoveStaleEntriesAsync();
+            await RemoveStaleEntriesAsync(token);
         } finally {
             try {
                 DatabaseAccessSemaphore.Release();
@@ -26,7 +26,7 @@ class DataRetention : BackgroundService {
         }
     }
 
-    private async Task RemoveStaleEntriesAsync() {
+    private async Task RemoveStaleEntriesAsync(CancellationToken token) {
         var opts = new DbContextOptionsBuilder<BotDatabaseContext>();
         ShardManager.BuildSqlOptions(opts);
         using var db = new BotDatabaseContext(opts.Options);
@@ -35,21 +35,21 @@ class DataRetention : BackgroundService {
         var now = DateTimeOffset.UtcNow;
         var updatedUsers = 0;
         foreach (var guild in Shard.DiscordClient.Guilds) {
-            var local = Shard.Cache.GetExistingGuildUsers(guild.Id, false).ToHashSet();
-            if (!local.Any()) continue;
+            var local = Shard.Cache.GetEntriesForGuild(guild.Id, false)
+                .Select(e => e.UserId).ToList();
 
             foreach (var queue in local.Chunk(1000)) {
                 updatedUsers += await db.UserEntries
                     .Where(gu => gu.GuildId == guild.Id)
                     .Where(gu => local.Contains(gu.UserId))
-                    .ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now));
+                    .ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
             }
         }
 
         // And let go of old data
         var staleUserCount = await db.UserEntries
             .Where(gu => now - TimeSpan.FromDays(StaleUserThreashold) > gu.LastSeen)
-            .ExecuteDeleteAsync();
+            .ExecuteDeleteAsync(token);
 
         // Build report
         var resultText = new StringBuilder();

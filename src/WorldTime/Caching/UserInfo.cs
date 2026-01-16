@@ -40,7 +40,7 @@ public sealed record UserInfo {
     };
 
     /// <summary>
-    /// Formats this user's name to a consistent, readable format which makes use of their nickname.
+    /// Formats this user's name to a consistent, readable format that prioritizes the nickname or global name.
     /// </summary>
     public string FormatName() {
         if (IsNull) throw new InvalidOperationException("This entry is incomplete and must be considered effectively null.");

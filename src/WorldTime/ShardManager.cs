@@ -75,7 +75,9 @@ class ShardManager : IDisposable {
         DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
         GatewayIntents = GatewayIntents.Guilds,
         SuppressUnknownDispatchWarnings = true,
+#if DEBUG
         LogGatewayIntentWarnings = false,
+#endif
         FormatUsersInBidirectionalUnicode = false
     };
 
