@@ -12,9 +12,9 @@ class UserCacheFill(ShardInstance instance) : BackgroundService(instance) {
     private static readonly SemaphoreSlim _downloadGate = new(18);
 
     // Time to delay sending out a request, in milliseconds. Consider chunk size when adjusting.
-    const int JitterMin = 50;
-    const int JitterMax = 500;
-    const int RequestChunkSize = 200;
+    const int JitterMin = 100;
+    const int JitterMax = 1000;
+    const int RequestChunkSize = 50;
 
     public override async Task OnTick(int tickCount, CancellationToken token) {
         var missingFromCache = BuildShardDownloadList();
@@ -34,10 +34,9 @@ class UserCacheFill(ShardInstance instance) : BackgroundService(instance) {
     // Consider guild users that have existing configuration but are not in our cache.
     // Considers all guilds in this shard at once.
     private Dictionary<ulong, List<ulong>> BuildShardDownloadList() {
-        using var db = new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(Program.SqlConnectionString)
-            .UseSnakeCaseNamingConvention()
-            .Options);
+        var opts = new DbContextOptionsBuilder<BotDatabaseContext>();
+        ShardManager.BuildSqlOptions(opts);
+        using var db = new BotDatabaseContext(opts.Options);
 
         var guilds = Shard.DiscordClient.Guilds.Select(g => g.Id);
 
@@ -49,7 +48,7 @@ class UserCacheFill(ShardInstance instance) : BackgroundService(instance) {
 
         var result = new Dictionary<ulong, List<ulong>>();
         foreach (var (guild, dbUserEntries) in dbUsers) {
-            var inCache = Shard.Cache.GetExistingGuildUsers(guild);
+            var inCache = Shard.Cache.GetExistingGuildUsers(guild, true);
             result[guild] = [.. dbUserEntries.Except(inCache)];
         }
         return result;

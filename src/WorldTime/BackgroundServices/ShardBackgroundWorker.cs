@@ -1,4 +1,5 @@
 ﻿namespace WorldTime.BackgroundServices;
+
 /// <summary>
 /// Handles the execution of periodic background tasks specific to each shard.
 /// </summary>
@@ -25,6 +26,7 @@ class ShardBackgroundWorker : IDisposable {
 
         _workers = new List<BackgroundService>() {
                 {new UserCacheFill(instance)},
+                {new DataRetention(instance)},
                 {new ExternalStatisticsReporting(instance)}
             };
 

@@ -6,8 +6,18 @@ public class BotDatabaseContext(DbContextOptions<BotDatabaseContext> options) : 
     public DbSet<GuildConfiguration> GuildSettings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
-        modelBuilder.Entity<UserEntry>().HasKey(e => new { e.GuildId, e.UserId }).HasName("userdata_pkey");
-        modelBuilder.Entity<GuildConfiguration>().Property(p => p.Use12HourTime).HasDefaultValue(false);
+        // No foreign key references between the two. This is on purpose.
+
+        modelBuilder.Entity<GuildConfiguration>(e => {
+            e.HasKey(k => k.GuildId);
+            e.Property(p => p.Use12HourTime).HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<UserEntry>(e => {
+            e.HasKey(e => new { e.GuildId, e.UserId });
+            e.HasIndex(c => c.GuildId);
+            e.Property(p => p.LastSeen).HasDefaultValueSql("NOW()");
+        });
     }
 
     #region Helper methods / abstractions

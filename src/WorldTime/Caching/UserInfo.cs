@@ -13,7 +13,31 @@ public sealed record UserInfo {
     public string? GuildNickname { get; private init; }
 
     public DateTimeOffset EntryTTL { get; private init; }
+    /// <summary>
+    /// Gets if the entry is marked as null. This marks a cache miss and serves as a
+    /// means to track users in cache that could not be retrieved on Discord.
+    /// </summary>
     public bool IsNull { get; private init; }
+
+    public static UserInfo CreateFrom(IGuildUser user) => new() {
+        GuildId = user.GuildId,
+        UserId = user.Id,
+        Username = user.Username,
+        GlobalName = user.GlobalName,
+        GuildNickname = user.Nickname,
+
+        EntryTTL = DateTimeOffset.UtcNow + CalculateJitter(),
+        IsNull = false
+    };
+
+    public static UserInfo NullFrom(ulong guildId, ulong userId) => new() {
+        GuildId = guildId,
+        UserId = userId,
+
+        // Null results get a slightly higher lifetime
+        EntryTTL = DateTimeOffset.UtcNow + (CalculateJitter() * 1.5),
+        IsNull = true
+    };
 
     /// <summary>
     /// Formats this user's name to a consistent, readable format which makes use of their nickname.
@@ -46,25 +70,5 @@ public sealed record UserInfo {
         var jitter = Program.JitterSource.Value!.Next(JitterMaxMinutes);
         return MinimumTTL + TimeSpan.FromMinutes(jitter);
     }
-
-    public static UserInfo CreateFrom(IGuildUser user) => new() {
-        GuildId = user.GuildId,
-        UserId = user.Id,
-        Username = user.Username,
-        GlobalName = user.GlobalName,
-        GuildNickname = user.Nickname,
-
-        EntryTTL = DateTimeOffset.UtcNow + CalculateJitter(),
-        IsNull = false
-    };
-
-    public static UserInfo NullFrom(ulong guildId, ulong userId) => new() {
-        GuildId = guildId,
-        UserId = userId,
-
-        // Null results get a slightly higher lifetime
-        EntryTTL = DateTimeOffset.UtcNow + (CalculateJitter() * 1.5),
-        IsNull = true
-    };
     #endregion
 }

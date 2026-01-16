@@ -8,17 +8,20 @@ public sealed class UserCache {
 
     public int GuildsCount => _cache.Count;
     public int UsersCount => _cache.Values.Sum(v => v.Count);
-    
+
     public void Update(UserInfo info) {
         var guild = _cache.GetOrAdd(info.GuildId, _ => new());
         guild[info.UserId] = info;
     }
 
-    // For use when refreshing cache
-    public IEnumerable<ulong> GetExistingGuildUsers(ulong guildId) {
+    /// <summary>
+    /// Gets all valid, non-expired, and optionally null entries in cache corresponding to the given guild.
+    /// </summary>
+    public IEnumerable<ulong> GetExistingGuildUsers(ulong guildId, bool includeNullEntries) {
         if (_cache.TryGetValue(guildId, out var uinfos)) {
             var now = DateTimeOffset.UtcNow;
             foreach (var (_, entry) in uinfos) {
+                if (!includeNullEntries && entry.IsNull) continue;
                 if (now < entry.EntryTTL) yield return entry.UserId;
             }
         }
