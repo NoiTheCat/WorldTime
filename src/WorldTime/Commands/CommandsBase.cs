@@ -1,12 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
 using Discord.Interactions;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using WorldTime.Caching;
 using WorldTime.Data;
 
 namespace WorldTime.Commands;
+
 public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     protected const string ErrInvalidZone =
         ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
@@ -58,65 +59,89 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         return null;
     }
 
-    /// <summary>
-    /// Formats a user's name to a consistent, readable format which makes use of their nickname.
-    /// </summary>
-    [Obsolete]
-    protected static string FormatName(SocketGuildUser user) {
-        static string escapeFormattingCharacters(string input) {
-            var result = new StringBuilder();
-            foreach (var c in input) {
-                if (c is '\\' or '_' or '~' or '*' or '@' or '`') {
-                    result.Append('\\');
+    protected List<ulong> GetCacheMissingUsers(ulong guildId) {
+        // Simple for now - return all database IDs not in current cache
+        var local = Cache.GetEntriesForGuild(guildId, false).Select(e => e.UserId);
+        var remote = DbContext.UserEntries
+            .Where(e => e.GuildId == guildId)
+            .Select(e => e.UserId);
+        return [.. remote.Except(local)];
+    }
+
+    [Obsolete("don't use this anymore")]
+    protected Task DownloadRemainingUsersAsync(ulong guildId, IEnumerable<ulong> users) {
+        // TODO this code is ugly - too much duplicated from UserCacheFill
+        // absolutely needs to be redone. consider this a placeholder
+        var _downloadGate = new SemaphoreSlim(10);
+        var tasks = users.Chunk(200).First().Select(async u => {
+            await _downloadGate.WaitAsync();
+            try {
+                await Task.Delay(Program.JitterSource.Value!.Next(50, 500));
+
+                var incoming = await Shard.DiscordClient.Rest
+                    .GetGuildUserAsync(guildId, u);
+                if (incoming is not null) {
+                    Cache.Update(UserInfo.CreateFrom(incoming));
+                } else {
+                    Cache.Update(UserInfo.NullFrom(guildId, u));
                 }
-                result.Append(c);
             }
-            return result.ToString();
-        }
+            finally {
+                _downloadGate.Release();
+            }
+        });
+        return Task.WhenAll(tasks);
+    }
 
-        if (user.DiscriminatorValue == 0) {
-            var username = escapeFormattingCharacters(user.GlobalName ?? user.Username);
-            if (user.Nickname != null) {
-                return $"{escapeFormattingCharacters(user.Nickname)} ({username})";
-            }
-            return username;
-        } else {
-            var username = escapeFormattingCharacters(user.Username);
-            if (user.Nickname != null) {
-                return $"{escapeFormattingCharacters(user.Nickname)} ({username}#{user.Discriminator})";
-            }
-            return $"{username}#{user.Discriminator}";
+    #region Database helper methods
+    /// <summary>
+    /// Inserts/updates the specified user in the database.
+    /// </summary>
+    protected async Task UpdateDbUserAsync(SocketGuildUser user, string timezone) {
+        var tuser = DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
+        if (tuser == null) {
+            tuser = new UserEntry() { UserId = user.Id, GuildId = user.Guild.Id };
+            DbContext.Add(tuser);
         }
+        tuser.TimeZone = timezone;
+        await DbContext.SaveChangesAsync();
     }
 
     /// <summary>
-    /// Checks if the member cache for the specified guild needs to be filled, and sends a request if needed.
+    /// Gets the number of unique time zones in the database.
     /// </summary>
-    /// <remarks>
-    /// Due to a quirk in Discord.Net, the user cache cannot be filled until the command handler is no longer executing
-    /// regardless of if the request runs on its own thread, thus requiring the user to run the command again.
-    /// </remarks>
+    protected int GetDistinctZoneCount()
+        => DbContext.UserEntries.Select(u => u.TimeZone).Distinct().Count();
+
+    /// <summary>
+    /// Removes the specified user from the database.
+    /// </summary>
     /// <returns>
-    /// True if the guild's members are already downloaded. If false, the command handler must notify the user.
+    /// <see langword="true"/> if the removal was successful.
+    /// <see langword="false"/> if the user did not exist.
     /// </returns>
-    [Obsolete]
-    protected static async Task<bool> AreUsersDownloadedAsync(SocketGuild guild) {
-        static bool HasMostMembersDownloaded(SocketGuild guild) {
-            if (guild.HasAllMembers) return true;
-            if (guild.MemberCount > 30) {
-                // For guilds of size over 30, require 85% or more of the members to be known
-                // (26/30, 42/50, 255/300, etc)
-                return guild.DownloadedMemberCount >= (int)(guild.MemberCount * 0.85);
-            } else {
-                // For smaller guilds, fail if two or more members are missing
-                return guild.MemberCount - guild.DownloadedMemberCount <= 2;
-            }
-        }
-        if (HasMostMembersDownloaded(guild)) return true;
-        else {
-            // Event handler hangs if awaited normally or used with Task.Run
-            await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
-            return false;
-        }
+    protected async Task<bool> DeleteDbUserAsync(SocketGuildUser user) {
+        var tuser = DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
+        if (tuser == null) return false;
+        DbContext.Remove(tuser);
+        await DbContext.SaveChangesAsync();
+        return true;
     }
+
+    protected GuildConfiguration GetGuildConf(ulong guildId) {
+        var gs = DbContext.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault();
+        if (gs == null) {
+            gs = new() { GuildId = Context.Guild.Id };
+            DbContext.Add(gs);
+        }
+        return gs;
+    }
+
+    protected bool GetEphemeralConfirm()
+        => DbContext.GuildSettings
+            .Where(r => r.GuildId == Context.Guild.Id)
+            .SingleOrDefault()?.EphemeralConfirm ?? false;
+    #endregion
 }

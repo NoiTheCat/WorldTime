@@ -15,30 +15,18 @@ public class ConfigCommands : CommandsBase {
 
     [SlashCommand("use-12hour", HelpUse12)]
     public async Task Cmd12Hour([Summary(description: HelpBool)] bool setting) {
-        using var db = DbContext;
-        var gs = db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault();
-        if (gs == null) {
-            gs = new() { GuildId = Context.Guild.Id };
-            db.Add(gs);
-        }
-
+        var gs = GetGuildConf(Context.Guild.Id);
         gs.Use12HourTime = setting;
-        await db.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
         await RespondAsync($":white_check_mark: Time listing set to **{(setting ? "AM/PM" : "24 hour")}** format.",
             ephemeral: gs.EphemeralConfirm).ConfigureAwait(false);
     }
 
     [SlashCommand("private-confirms", HelpPrivateConfirms)]
     public async Task PrivateConfirmations([Summary(description: HelpBool)] bool setting) {
-        using var db = DbContext;
-        var gs = db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault();
-        if (gs == null) {
-            gs = new() { GuildId = Context.Guild.Id };
-            db.Add(gs);
-        }
-
+        var gs = GetGuildConf(Context.Guild.Id);
         gs.EphemeralConfirm = setting;
-        await db.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
         await RespondAsync($":white_check_mark: Private confirmations **{(setting ? "enabled" : "disabled")}**.",
             ephemeral: false).ConfigureAwait(false); // Always show this confirmation despite setting
     }
@@ -47,29 +35,26 @@ public class ConfigCommands : CommandsBase {
     public async Task CmdSetFor([Summary(description: "The user whose time zone to modify.")] SocketGuildUser user,
                                  [Summary(description: "The new time zone to set.")] string zone) {
         Cache.Update(UserInfo.CreateFrom(user));
-        using var db = DbContext;
-        // Extract parameters
+        
         var newtz = ParseTimeZone(zone);
         if (newtz == null) {
-            await RespondAsync(ErrInvalidZone,
-                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
-                .ConfigureAwait(false);
+            await RespondAsync(ErrInvalidZone, ephemeral: GetEphemeralConfirm()).ConfigureAwait(false);
             return;
         }
 
-        db.UpdateUser(user, newtz);
+        await UpdateDbUserAsync(user, newtz).ConfigureAwait(false);
         await RespondAsync($":white_check_mark: Time zone for **{user}** set to **{newtz}**.").ConfigureAwait(false);
     }
 
     [SlashCommand("remove-for", HelpRemoveFor)]
     public async Task CmdRemoveFor([Summary(description: "The user whose time zone to remove.")] SocketGuildUser user) {
         Cache.Update(UserInfo.CreateFrom(user));
-        using var db = DbContext;
-        if (db.DeleteUser(user))
+        
+        if (await DeleteDbUserAsync(user).ConfigureAwait(false)) {
             await RespondAsync($":white_check_mark: Removed zone information for {user}.").ConfigureAwait(false);
-        else
+        } else {
             await RespondAsync($":white_check_mark: No time zone is set for {user}.",
-                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
-                .ConfigureAwait(false);
+                ephemeral: GetEphemeralConfirm()).ConfigureAwait(false);
+        }
     }
 }

@@ -17,25 +17,31 @@ public sealed class UserCache {
     /// <summary>
     /// Gets all valid, non-expired, and optionally null entries in cache corresponding to the given guild.
     /// </summary>
-    public IEnumerable<ulong> GetExistingGuildUsers(ulong guildId, bool includeNullEntries) {
+    public IEnumerable<UserInfo> GetEntriesForGuild(ulong guildId, bool includeNullEntries) {
         if (_cache.TryGetValue(guildId, out var uinfos)) {
             var now = DateTimeOffset.UtcNow;
             foreach (var (_, entry) in uinfos) {
                 if (!includeNullEntries && entry.IsNull) continue;
-                if (now < entry.EntryTTL) yield return entry.UserId;
+                if (now > entry.EntryTTL) continue;
+                yield return entry;
             }
         }
         yield break;
     }
 
-    public bool TryGetUser(ulong guildId, ulong userId, [NotNullWhen(true)] out UserInfo? user) {
-        user = null;
-        if (!_cache.TryGetValue(guildId, out var g)) return false;
-        if (!g.TryGetValue(userId, out var info)) return false;
-        if (DateTimeOffset.UtcNow > info.EntryTTL) return false; // stale
+    // Used by listing command.
+    internal Dictionary<ulong, UserInfo>? GetIndexedUsers(ulong guildId) {
+        if (!_cache.TryGetValue(guildId, out var source)) return null;
 
-        user = info;
-        return true;
+        var result = new Dictionary<ulong, UserInfo>();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (id, entry) in source) {
+            if (entry.IsNull) continue;
+            if (entry.EntryTTL > now) continue;
+            result.Add(id, entry); // a shallow copy is completely fine
+        }
+        if (result.Count == 0) return null; // should ideally not happen, but just in case
+        return result;
     }
 
     public void Sweep(ulong guildId) {

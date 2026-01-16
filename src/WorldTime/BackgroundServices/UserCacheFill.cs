@@ -48,7 +48,7 @@ class UserCacheFill(ShardInstance instance) : BackgroundService(instance) {
 
         var result = new Dictionary<ulong, List<ulong>>();
         foreach (var (guild, dbUserEntries) in dbUsers) {
-            var inCache = Shard.Cache.GetExistingGuildUsers(guild, true);
+            var inCache = Shard.Cache.GetEntriesForGuild(guild, true).Select(e => e.UserId);
             result[guild] = [.. dbUserEntries.Except(inCache)];
         }
         return result;
