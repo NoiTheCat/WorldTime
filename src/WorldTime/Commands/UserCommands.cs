@@ -15,13 +15,13 @@ public class UserCommands : CommandsBase {
             return;
         }
 
-        var missing = GetCacheMissingUsers(Context.Guild.Id);
-        if (missing.Any()) {
+        var refresh = Shard.Fetcher.RequestGuildRefreshAsync(DbContext, Context.Guild.Id);
+        if (!refresh.IsCompleted) {
             // This may take a while
             await DeferAsync().ConfigureAwait(false);
-            await DownloadRemainingUsersAsync(Context.Guild.Id, missing).ConfigureAwait(false);
+            await refresh.ConfigureAwait(false);
         }
-        await CmdListWithoutParamAsync();
+        await CmdListWithoutParamAsync().ConfigureAwait(false);
     }
 
     // Guild-wide list output, called from the list command
@@ -33,7 +33,7 @@ public class UserCommands : CommandsBase {
                 .Where(e => e.GuildId == Context.Guild.Id)
                 .GroupBy(e => e.TimeZone)
                 .Select(e => new { e.Key, Users = e.Select(x => x.UserId).ToList() })
-                .OrderByDescending(x => x.Users.Count) // TODO why? was this from back when there was a cutoff on zone results?
+                //.OrderByDescending(x => x.Users.Count) // TODO why? was this from back when there was a cutoff on zone results?
                 .ToDictionary(x => x.Key, x => x.Users);
         var cacheusers = Cache.GetIndexedUsers(Context.Guild.Id);
         if (cacheusers == null || query.Count == 0) {

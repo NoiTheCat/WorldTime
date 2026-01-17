@@ -33,6 +33,12 @@ class DataRetention : BackgroundService {
 
         // Update guild users
         var now = DateTimeOffset.UtcNow;
+#if DEBUG
+        await db.UserEntries.ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
+        Log("DEBUG: Extended TTL of existing entries.");
+        return;
+#pragma warning disable CS0162 // Unreachable code detected
+#endif
         var updatedUsers = 0;
         foreach (var guild in Shard.DiscordClient.Guilds) {
             var local = Shard.Cache.GetEntriesForGuild(guild.Id, false)

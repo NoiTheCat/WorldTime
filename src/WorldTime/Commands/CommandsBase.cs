@@ -59,40 +59,6 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         return null;
     }
 
-    protected List<ulong> GetCacheMissingUsers(ulong guildId) {
-        // Simple for now - return all database IDs not in current cache
-        var local = Cache.GetEntriesForGuild(guildId, false).Select(e => e.UserId);
-        var remote = DbContext.UserEntries
-            .Where(e => e.GuildId == guildId)
-            .Select(e => e.UserId);
-        return [.. remote.Except(local)];
-    }
-
-    [Obsolete("don't use this anymore")]
-    protected Task DownloadRemainingUsersAsync(ulong guildId, IEnumerable<ulong> users) {
-        // TODO this code is ugly - too much duplicated from UserCacheFill
-        // absolutely needs to be redone. consider this a placeholder
-        var _downloadGate = new SemaphoreSlim(10);
-        var tasks = users.Chunk(200).First().Select(async u => {
-            await _downloadGate.WaitAsync();
-            try {
-                await Task.Delay(Program.JitterSource.Value!.Next(50, 500));
-
-                var incoming = await Shard.DiscordClient.Rest
-                    .GetGuildUserAsync(guildId, u);
-                if (incoming is not null) {
-                    Cache.Update(UserInfo.CreateFrom(incoming));
-                } else {
-                    Cache.Update(UserInfo.NullFrom(guildId, u));
-                }
-            }
-            finally {
-                _downloadGate.Release();
-            }
-        });
-        return Task.WhenAll(tasks);
-    }
-
     #region Database helper methods
     /// <summary>
     /// Inserts/updates the specified user in the database.

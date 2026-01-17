@@ -18,6 +18,7 @@ public sealed class ShardInstance : IDisposable {
     public int ShardId => DiscordClient.ShardId;
     internal Configuration Config => _manager.Config;
     internal UserCache Cache { get; }
+    internal Coordinator Fetcher { get; }
 
     internal DateTimeOffset LastBackgroundRun => _background.LastBackgroundRun;
     internal string? CurrentExecutingService => _background.CurrentExecutingService;
@@ -35,9 +36,11 @@ public sealed class ShardInstance : IDisposable {
             // This is a dummy instance for InteractionService early init
             _manager = null!;
             _background = null!;
+            Fetcher = null!;
             return;
         }
         _manager = manager;
+        Fetcher = new Coordinator(this);
         
         DiscordClient.Log += Client_Log;
         DiscordClient.Ready += Client_Ready;
