@@ -11,7 +11,8 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/src/WorldTime/bin/Debug/net10.0/WorldTime.dll",
-            "args": [ "-c", "${workspaceFolder}/debug.json" ]
+            "args": [ "-c", "${workspaceFolder}/debug.json" ],
+            //"enableStepFiltering": false
         },
         {
             "name": ".NET Core Attach",

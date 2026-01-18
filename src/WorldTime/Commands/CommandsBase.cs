@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using Discord.Interactions;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using WorldTime.Caching;
 using WorldTime.Data;
@@ -31,23 +29,6 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         if (Context.User is IGuildUser incoming)
             Cache.Update(UserInfo.CreateFrom(incoming));
         return base.BeforeExecuteAsync(command);
-    }
-
-    /// <summary>
-    /// Returns a string displaying the current time in the given time zone.
-    /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
-    /// </summary>
-    protected static string TzPrint(string zone, bool use12hr) {
-        var tzdb = DateTimeZoneProviders.Tzdb;
-        DateTimeZone tz = tzdb.GetZoneOrNull(zone) ?? throw new Exception("Encountered unknown time zone: " + zone);
-        var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
-        var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
-        string fullstr;
-        if (use12hr) {
-            var ap = now.ToString("tt", DateTimeFormatInfo.InvariantInfo).ToLowerInvariant();
-            fullstr = now.ToString($"MMM' 'dd', 'hh':'mm'{ap} 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
-        } else fullstr = now.ToString("dd'-'MMM', 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
-        return $"{sortpfx}● `{fullstr}`";
     }
 
     /// <summary>

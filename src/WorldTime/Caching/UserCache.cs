@@ -28,15 +28,19 @@ public sealed class UserCache {
         yield break;
     }
 
-    // Used by listing command.
-    internal Dictionary<ulong, UserInfo>? GetIndexedUsers(ulong guildId) {
+    /// <summary>
+    /// Returns a non-concurrent dictionary holding a shallow copy of what the cache knows about the given guild.
+    /// Excludes null and expired users.
+    /// </summary>
+    /// <remarks>Intended for use by listing command handlers.</remarks>
+    public Dictionary<ulong, UserInfo>? GetGuildCopy(ulong guildId) {
         if (!_cache.TryGetValue(guildId, out var source)) return null;
 
         var result = new Dictionary<ulong, UserInfo>();
         var now = DateTimeOffset.UtcNow;
         foreach (var (id, entry) in source) {
             if (entry.IsNull) continue;
-            if (entry.EntryTTL > now) continue;
+            if (now > entry.EntryTTL) continue;
             result.Add(id, entry); // a shallow copy is completely fine
         }
         if (result.Count == 0) return null; // should ideally not happen, but just in case

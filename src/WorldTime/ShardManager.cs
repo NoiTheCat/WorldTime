@@ -67,7 +67,7 @@ class ShardManager : IDisposable {
         }
     }
 
-#region Internal settings
+    #region Internal settings
     private DiscordSocketConfig GetSocketConfig(int shardId) => new() {
         ShardId = shardId,
         TotalShards = Config.Sharding.Total,
@@ -84,7 +84,7 @@ class ShardManager : IDisposable {
     internal static void BuildSqlOptions(DbContextOptionsBuilder options) =>
         options.UseNpgsql(Program.SqlConnectionString)
                .UseSnakeCaseNamingConvention();
-#endregion
+    #endregion
 
     private void Log(string message) => Program.Log(nameof(ShardManager), message);
 
@@ -140,7 +140,7 @@ class ShardManager : IDisposable {
                     var client = shard.DiscordClient;
                     shardStatuses.Append($"{Enum.GetName(typeof(ConnectionState), client.ConnectionState)} ({client.Latency:000}ms).");
                     shardStatuses.Append($" Guilds: {client.Guilds.Count:0000},");
-                    shardStatuses.Append($" Cache: {shard.Cache.GuildsCount:000} guilds -> {shard.Cache.UsersCount:00000} users");
+                    shardStatuses.Append($" Cache: {shard.Cache.GuildsCount:000} guilds -> {shard.Cache.UsersCount:00000} users.");
                     shardStatuses.Append($" Task: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;
                     shardStatuses.Append($" since {Math.Floor(lastRun.TotalMinutes):00}m{lastRun.Seconds:00}s ago.");
