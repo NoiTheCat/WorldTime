@@ -4,6 +4,10 @@ using System.Text;
 namespace WorldTime.Caching;
 
 public sealed record UserInfo {
+    private static readonly TimeSpan MinimumTTL = TimeSpan.FromMinutes(360);
+    private const int TTLAdjustAddMaxMinutes = 1440;
+    private const double TTLAdjustWhenNull = 0.3;
+
     public ulong GuildId { get; private init; }
     public ulong UserId { get; private init; }
 
@@ -35,7 +39,7 @@ public sealed record UserInfo {
         UserId = userId,
 
         // Null results get a slightly higher lifetime
-        EntryTTL = DateTimeOffset.UtcNow + (CalculateJitter() * 1.5),
+        EntryTTL = DateTimeOffset.UtcNow + (CalculateJitter() * TTLAdjustWhenNull),
         IsNull = true
     };
 
@@ -61,14 +65,8 @@ public sealed record UserInfo {
         return username;
     }
 
-    #region Entry lifetime
-    // Currently, record TTL varies from 1 to 6 hours
-    private static readonly TimeSpan MinimumTTL = TimeSpan.FromMinutes(60);
-    const int JitterMaxMinutes = 300;
-    
     private static TimeSpan CalculateJitter() {
-        var jitter = Program.JitterSource.Value!.Next(JitterMaxMinutes);
+        var jitter = Program.JitterSource.Value!.Next(TTLAdjustAddMaxMinutes);
         return MinimumTTL + TimeSpan.FromMinutes(jitter);
     }
-    #endregion
 }

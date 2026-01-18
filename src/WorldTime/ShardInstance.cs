@@ -1,4 +1,3 @@
-using System.Reflection;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
 using WorldTime.BackgroundServices;
@@ -43,10 +42,7 @@ public sealed class ShardInstance : IDisposable {
         Fetcher = new Coordinator(this);
         
         DiscordClient.Log += Client_Log;
-        DiscordClient.Ready += Client_Ready;
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
-        _manager.Interactions.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
-        _manager.Interactions.Log += Client_Log;
 
         // Background task constructor begins background processing immediately.
         _background = new ShardBackgroundWorker(this);
@@ -65,8 +61,6 @@ public sealed class ShardInstance : IDisposable {
     /// </summary>
     public void Dispose() {
         DiscordClient.InteractionCreated -= DiscordClient_InteractionCreated;
-        _manager.Interactions.SlashCommandExecuted -= InteractionService_SlashCommandExecuted;
-        _manager.Interactions.Log += Client_Log;
         _background.Dispose();
         if (!DiscordClient.LogoutAsync().Wait(5000)) {
             Log("Shutdown", "Hanging on logout! Continuing with dispose.");
@@ -108,32 +102,6 @@ public sealed class ShardInstance : IDisposable {
         return Task.CompletedTask;
     }
 
-    private async Task Client_Ready() {
-        // TODO split into its own executable
-#if DEBUG
-        // Debug: Register our commands locally instead, in each guild we're in
-        if (DiscordClient.Guilds.Count > 5) {
-            Program.Log(nameof(ShardInstance), "Are you debugging in production?! Skipping DEBUG command registration.");
-            return;
-        } else {
-            var ia = new InteractionService(DiscordClient);
-            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
-            foreach (var g in DiscordClient.Guilds) {
-                await ia.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
-                Log(nameof(ShardInstance), $"Updated DEBUG command registration in guild {g.Id}.");
-            }
-        }
-#else
-        // Update slash/interaction commands
-        if (ShardId == 0) {
-            var ia = new Discord.Interactions.InteractionService(DiscordClient);
-            await ia.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
-            await ia.RegisterCommandsGloballyAsync(true);
-            Log(nameof(ShardInstance), "Updated global command registration.");
-        }
-#endif
-    }
-
     // Slash command preparation and invocation
     private async Task DiscordClient_InteractionCreated(SocketInteraction arg) {
         var context = new SocketInteractionContext(DiscordClient, arg);
@@ -146,36 +114,6 @@ public sealed class ShardInstance : IDisposable {
                 else await arg.RespondAsync(InternalError);
             }
         }
-    }
-
-    // Slash command logging and failed execution handling
-    private async Task InteractionService_SlashCommandExecuted(SlashCommandInfo info, IInteractionContext context, IResult result) {
-        string sender;
-        if (context.Guild != null) sender = $"{context.Guild}!{context.User}";
-        else sender = $"{context.User} in non-guild context";
-        var logresult = $"{(result.IsSuccess ? "Success" : "Fail")}: `/{info}` by {sender}.";
-
-        // Additional log information with error detail
-        if (result.Error != null) {
-            if (result.Error == InteractionCommandError.Exception && result is ExecuteResult exr) {
-                logresult += " Inner exception:\n" + exr.Exception.ToString();
-
-                // Respond if failed
-                try {
-                    await context.Interaction
-                        .RespondAsync(":x: An internal error occurred. If this persists, contact the bot owner.", ephemeral: true)
-                        .ConfigureAwait(false);
-                }
-                catch {
-                    // This was likely to fail anyway. Do nothing.
-                }
-            }
-            else {
-                logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
-            }
-        }
-
-        Log("Command", logresult);
     }
 
     // Gets total guild count from manager - for help command

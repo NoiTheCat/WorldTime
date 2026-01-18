@@ -39,6 +39,7 @@ class ShardManager : IDisposable {
             .AddDbContext<BotDatabaseContext>(_ => { })
             .BuildServiceProvider();
         Interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), dummysvcs).Wait();
+        Interactions.SlashCommandExecuted += ReportSlashCommand;
 
         // Allocate shards based on configuration
         _shards = [];
@@ -160,4 +161,34 @@ class ShardManager : IDisposable {
                                         where sh.Value != null
                                         select sh.Value.DiscordClient.Guilds.Count)
                                         .Sum();
+
+    // Slash command logging and failed execution handling
+    private async Task ReportSlashCommand(SlashCommandInfo info, IInteractionContext context, IResult result) {
+        if (context.Interaction is not Commands.CommandsBase ia) return;
+
+        string sender;
+        if (context.Guild != null) sender = $"{context.Guild}!{context.User}";
+        else sender = $"{context.User} in non-guild context";
+        var logresult = $"{(result.IsSuccess ? "Success" : "Fail")}: `/{info}` by {sender}.";
+
+        // Additional log information with error detail
+        if (result.Error != null) {
+            if (result.Error == InteractionCommandError.Exception && result is ExecuteResult exr) {
+                logresult += " Inner exception:\n" + exr.Exception.ToString();
+
+                // Respond if failed
+                try {
+                    await context.Interaction
+                        .RespondAsync(":x: An internal error occurred. If this persists, contact the bot owner.", ephemeral: true)
+                        .ConfigureAwait(false);
+                } catch {
+                    // This was likely to fail anyway. Do nothing.
+                }
+            } else {
+                logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
+            }
+        }
+
+        ia.Shard.Log("Command", logresult);
+    }
 }

@@ -39,6 +39,8 @@ public class UserCommands : CommandsBase {
                 .Select(e => new { e.Key, Users = e.Select(x => x.UserId).ToList() })
                 .ToList() // force evaluation - this becomes client-side
                 .Select(o => (Area: TzPrint(o.Key), o.Users))
+                .GroupBy(g => g.Area)
+                .Select(e => (Area: e.Key, Subscribers: e.SelectMany(u => u.Users).Shuffle()))
                 .OrderBy(x => x.Area)
                 .ToList();
         var cacheusers = Cache.GetGuildCopy(Context.Guild.Id);

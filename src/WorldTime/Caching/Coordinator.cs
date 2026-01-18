@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net.Sockets;
+using Discord.Net;
 using Microsoft.EntityFrameworkCore;
 using WorldTime.Data;
 
@@ -9,12 +11,13 @@ namespace WorldTime.Caching;
 class Coordinator(ShardInstance parent) {
     // Discord limits to 50 requests per second per connection for all communications, not just this.
     // Tune as needed. This value always stays hardcoded.
-    const int MaxConcurrentRequests = 12;
+    const int MaxConcurrentRequests = 10;
 
-    // Time to delay sending out a request, in milliseconds. Consider chunk size when adjusting.
-    const int JitterMin = 100;
-    const int JitterMax = 2000;
-    const int RequestBatchSize = 50;
+    // Time to delay sending out a request, in milliseconds.
+    // Consider batch and concurrent limits when adjusting.
+    const int JitterMin = 250;
+    const int JitterMax = 3000;
+    const int RequestBatchSize = 20;
 
     private static readonly SemaphoreSlim _downloadGate = new(MaxConcurrentRequests);
 
@@ -22,8 +25,6 @@ class Coordinator(ShardInstance parent) {
     private readonly ConcurrentDictionary<ulong, Lazy<Task>> _runners = new();
 
     private ShardInstance Shard { get; } = parent;
-    private DiscordSocketClient Client => Shard.DiscordClient;
-    private UserCache Cache => Shard.Cache;
 
     public Task RequestGuildRefreshAsync(BotDatabaseContext ctx, ulong guildId) {
         var missing = GetCacheMissingUsers(ctx, guildId);
@@ -35,7 +36,7 @@ class Coordinator(ShardInstance parent) {
 
     // Guild-specific search. Returns all IDs in database not also in current cache.
     private List<ulong> GetCacheMissingUsers(BotDatabaseContext context, ulong guildId) {
-        var local = Cache.GetEntriesForGuild(guildId, true)
+        var local = Shard.Cache.GetEntriesForGuild(guildId, true)
             .Select(e => e.UserId)
             .ToList();
         var remote = context.UserEntries
@@ -45,63 +46,35 @@ class Coordinator(ShardInstance parent) {
         return [.. remote.Except(local)];
     }
 
-    #region Specific to background task
     // Directly called by background task. Not at all useful to anyone else.
-    public Task BackgroundRefreshShardTask(CancellationToken token) {
-        var missing = BuildShardDownloadList();
+    public async Task BackgroundRefreshShardTask(Dictionary<ulong, List<ulong>> missing, CancellationToken token) {
         var enqueued = _runners.Keys.ToHashSet();
-        var bgRunners = new List<Task>();
 
         foreach (var (guildId, users) in missing) {
-            if (Shard.DiscordClient.GetGuild(guildId) is null) continue; // skip pointless work
-            if (enqueued.Contains(guildId)) continue; // ignore tasks already running
-            if (users.Count == 0) continue; // this is very possible
+            if (Shard.DiscordClient.GetGuild(guildId) is null) continue; // situation may have changed
+            if (enqueued.Contains(guildId)) continue; // task may have already been requested elsewhere
+            if (users.Count == 0) continue; // uncommon, but it does happen
 
+            // Set up and handle just one at a time. Setting up all at once chokes manual requests.
             var newtask = _runners.GetOrAdd(guildId,
                 new Lazy<Task>(() => RefreshInternalAsync(guildId, users, token),
                 LazyThreadSafetyMode.ExecutionAndPublication)).Value;
-            bgRunners.Add(newtask);
+            await newtask.ConfigureAwait(false);
+            await Task.Yield();
         }
-        return Task.WhenAll(bgRunners);
     }
-
-    // Like GetCacheMissingUsers, but in one query
-    private Dictionary<ulong, List<ulong>> BuildShardDownloadList() {
-        var opts = new DbContextOptionsBuilder<BotDatabaseContext>();
-        ShardManager.BuildSqlOptions(opts);
-        using var db = new BotDatabaseContext(opts.Options);
-
-        var guilds = Client.Guilds.Select(g => g.Id);
-
-        var dbUsers = db.UserEntries.AsNoTracking()
-            .Where(u => guilds.Contains(u.GuildId))
-            .Select(v => new { v.GuildId, v.UserId })
-            .GroupBy(g => g.GuildId)
-            .ToDictionary(k => k.Key, v => v.Select(g => g.UserId).ToList());
-
-        var result = new Dictionary<ulong, List<ulong>>();
-        foreach (var (guild, remoteEntries) in dbUsers) {
-            // Including null entries; backing off on retrying missing entries until they expire
-            var localEntries = Cache.GetEntriesForGuild(guild, true).Select(e => e.UserId);
-            result[guild] = [.. remoteEntries.Except(localEntries)];
-        }
-        return result;
-    }
-    #endregion
 
     // Takes a guild/user list and runs it in batches until done or cancelled.
     // This returns the task for all guild requests to be awaited on.
     private async Task RefreshInternalAsync(ulong guildId, IEnumerable<ulong> users, CancellationToken token) {
         try {
             foreach (var chunk in users.Chunk(RequestBatchSize)) {
-                if (Shard.DiscordClient.ConnectionState != ConnectionState.Connected) break;
-                await RetrieveGuildUserBatchAsync(guildId, chunk, token).ConfigureAwait(false);
                 await Task.Yield();
                 if (token.IsCancellationRequested) return;
+                if (Shard.DiscordClient.ConnectionState != ConnectionState.Connected) break;
+                await RetrieveGuildUserBatchAsync(guildId, chunk, token).ConfigureAwait(false);
             }
-            Cache.Sweep(guildId);
         } finally {
-Console.WriteLine("refresh end   " + guildId);
             _runners.TryRemove(guildId, out _);
         }
     }
@@ -120,9 +93,18 @@ Console.WriteLine("refresh end   " + guildId);
                 } else {
                     Shard.Cache.Update(UserInfo.NullFrom(g, u));
                 }
-            } catch {
-                // TODO exception handling for temporary network issues
+            } catch (HttpException ex) when ((int)ex.HttpCode >= 500) {
+                // Discord-side transient failure
+            } catch (TaskCanceledException) {
+                // Timeout or cancellation
+            } catch (HttpRequestException) {
+                // DNS, TLS, connection reset, etc
+            } catch (IOException ex) when (ex.InnerException is SocketException) {
+                // Broken pipe, connection reset
+            } catch (SocketException) {
+                // Low-level network failure
             } finally {
+                // Other exception types are extraordinary in this context and will propagate
                 _downloadGate.Release();
             }
         });

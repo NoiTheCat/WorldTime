@@ -47,6 +47,12 @@ public sealed class UserCache {
         return result;
     }
 
+    public void Sweep() {
+        foreach (var (id, _) in _cache) {
+            Sweep(id);
+        }
+    }
+
     public void Sweep(ulong guildId) {
         if (!_cache.TryGetValue(guildId, out var guild)) return;
         var now = DateTimeOffset.UtcNow;
