@@ -11,12 +11,12 @@ namespace WorldTime.Caching;
 class Coordinator(ShardInstance parent) {
     // Discord limits to 50 requests per second per connection for all communications, not just this.
     // Tune as needed. This value always stays hardcoded.
-    const int MaxConcurrentRequests = 10;
+    const int MaxConcurrentRequests = 25;
 
     // Time to delay sending out a request, in milliseconds.
     // Consider batch and concurrent limits when adjusting.
     const int JitterMin = 250;
-    const int JitterMax = 3000;
+    const int JitterMax = 2000;
     const int RequestBatchSize = 20;
 
     private static readonly SemaphoreSlim _downloadGate = new(MaxConcurrentRequests);
@@ -47,19 +47,26 @@ class Coordinator(ShardInstance parent) {
     }
 
     // Directly called by background task. Not at all useful to anyone else.
-    public async Task BackgroundRefreshShardTask(Dictionary<ulong, List<ulong>> missing, CancellationToken token) {
+    public async Task BackgroundRefreshShardTask(
+        Dictionary<ulong, List<ulong>> missing, SemaphoreSlim concurrent, CancellationToken token) {
         var enqueued = _runners.Keys.ToHashSet();
 
+        // Set up and monitor one job at a time. Setting up all fetch tasks at once chokes manual requests.
+        // We may instead get an ongoing task. This is fine - we wait on it, same as if it originated here.
+        // The goal is responsiveness for requests originating by direct user action.
         foreach (var (guildId, users) in missing) {
-            if (Shard.DiscordClient.GetGuild(guildId) is null) continue; // situation may have changed
-            if (enqueued.Contains(guildId)) continue; // task may have already been requested elsewhere
-            if (users.Count == 0) continue; // uncommon, but it does happen
+            await concurrent.WaitAsync(token);
+            try {
+                if (Shard.DiscordClient.GetGuild(guildId) is null) continue; // situation may have changed
+                if (users.Count == 0) continue; // uncommon, but it does happen
 
-            // Set up and handle just one at a time. Setting up all at once chokes manual requests.
-            var newtask = _runners.GetOrAdd(guildId,
-                new Lazy<Task>(() => RefreshInternalAsync(guildId, users, token),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
-            await newtask.ConfigureAwait(false);
+                var newtask = _runners.GetOrAdd(guildId,
+                    new Lazy<Task>(() => RefreshInternalAsync(guildId, users, token),
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+                await newtask.ConfigureAwait(false);
+            } finally {
+                concurrent.Release();
+            }
             await Task.Yield();
         }
     }

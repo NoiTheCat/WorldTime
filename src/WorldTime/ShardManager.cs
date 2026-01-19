@@ -24,7 +24,7 @@ class ShardManager : IDisposable {
     internal InteractionService Interactions { get; }
 
     public ShardManager(Configuration cfg) {
-        var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        var ver = Assembly.GetExecutingAssembly().GetName().Version;
         Log($"World Time v{ver!.ToString(3)} is starting...");
         Config = cfg;
 
@@ -33,7 +33,7 @@ class ShardManager : IDisposable {
         var dummyclient = new DiscordSocketClient();
         Interactions = new(dummyclient);
         var dummysvcs = new ServiceCollection()
-            .AddSingleton(s => new ShardInstance(null, s))
+            .AddSingleton(s => new ShardInstance(s))
             .AddSingleton(new UserCache())
             .AddSingleton(dummyclient)
             .AddDbContext<BotDatabaseContext>(_ => { })
@@ -73,7 +73,7 @@ class ShardManager : IDisposable {
         ShardId = shardId,
         TotalShards = Config.Sharding.Total,
         LogLevel = LogSeverity.Info,
-        DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
+        DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts | RetryMode.RetryRatelimit,
         GatewayIntents = GatewayIntents.Guilds,
         SuppressUnknownDispatchWarnings = true,
 #if DEBUG
@@ -164,8 +164,6 @@ class ShardManager : IDisposable {
 
     // Slash command logging and failed execution handling
     private async Task ReportSlashCommand(SlashCommandInfo info, IInteractionContext context, IResult result) {
-        if (context.Interaction is not Commands.CommandsBase ia) return;
-
         string sender;
         if (context.Guild != null) sender = $"{context.Guild}!{context.User}";
         else sender = $"{context.User} in non-guild context";
@@ -189,6 +187,11 @@ class ShardManager : IDisposable {
             }
         }
 
-        ia.Shard.Log("Command", logresult);
+        if (context.Guild != null) {
+            var gid = GetShardIdFor(context.Guild.Id)!.Value;
+            _shards[gid]!.Log("Command", logresult);
+        } else {
+            Log(logresult);
+        }
     }
 }

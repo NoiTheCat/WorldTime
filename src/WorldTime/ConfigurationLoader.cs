@@ -3,7 +3,7 @@ using WorldTime.Config;
 
 namespace WorldTime;
 
-class ConfigurationLoader {
+public class ConfigurationLoader {
     public Configuration Config { get; }
 
     // All exception handling is responsibility of the caller
@@ -27,7 +27,7 @@ class ConfigurationLoader {
         Config.Validate();
     }
 
-    internal string GetConnectionString() {
+    public string GetConnectionString() {
         return new Npgsql.NpgsqlConnectionStringBuilder() {
             Host = Config.Database.Host,
             Database = Config.Database.Database,

@@ -6,11 +6,14 @@ namespace WorldTime.BackgroundServices;
 // Replaces the old AutoUserDownload, working very closely with the cache coordinator class
 // to gradually keep the user cache filled and refreshed in the background.
 class UserCacheFill(ShardInstance instance) : BackgroundService(instance) {
-    public override async Task OnTick(int tickCount, CancellationToken token) {
-        // TODO figure out staggering. also, math is hard
+    // The entire background cache fill process attempts to not compete with any potential manual
+    // requests for user data in all sorts of ways. Here, the number of background fetch tasks
+    // run in parallel across shards is limited.
+    private static readonly SemaphoreSlim _concurrentBackgroundRefreshTasks = new(1);
 
+    public override async Task OnTick(int tickCount, CancellationToken token) {
         var missingFromCache = BuildShardDownloadList();
-        await Shard.Fetcher.BackgroundRefreshShardTask(missingFromCache, token);
+        await Shard.Fetcher.BackgroundRefreshShardTask(missingFromCache, _concurrentBackgroundRefreshTasks, token);
         Shard.Cache.Sweep();
     }
 

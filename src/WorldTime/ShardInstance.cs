@@ -25,22 +25,29 @@ public sealed class ShardInstance : IDisposable {
     public const string InternalError = ":x: An unknown error occurred. If it persists, please notify the bot owner.";
 
     /// <summary>
-    /// Prepares and configures the shard instances, but does not yet start its connection.
+    /// Sets up a dummy shard instance to use for early initialization of InteractionService.
     /// </summary>
-    internal ShardInstance(ShardManager? manager, IServiceProvider localServices) {
+    public ShardInstance(IServiceProvider localServices) {
+        _manager = null!;
+        _background = null!;
+        Fetcher = null!;
+
         _services = localServices;
         Cache = _services.GetRequiredService<UserCache>();
         DiscordClient = _services.GetRequiredService<DiscordSocketClient>();
-        if (manager is null) {
-            // This is a dummy instance for InteractionService early init
-            _manager = null!;
-            _background = null!;
-            Fetcher = null!;
-            return;
-        }
+    }
+
+    /// <summary>
+    /// Prepares and configures the shard instances, but does not yet start its connection.
+    /// </summary>
+    internal ShardInstance(ShardManager manager, IServiceProvider localServices) {
         _manager = manager;
         Fetcher = new Coordinator(this);
-        
+
+        _services = localServices;
+        Cache = _services.GetRequiredService<UserCache>();
+        DiscordClient = _services.GetRequiredService<DiscordSocketClient>();
+
         DiscordClient.Log += Client_Log;
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
 
@@ -83,6 +90,7 @@ public sealed class ShardInstance : IDisposable {
                     case "Resumed previous session":
                     case "Failed to resume previous session":
                     case "Serializer Error": // The exception associated with this log appears a lot as of v3.2-ish
+                    case var s when s.StartsWith("Rate limit triggered"):
                         return Task.CompletedTask;
                 }
             }
