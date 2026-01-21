@@ -3,11 +3,10 @@ using WorldTime.Data;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using WorldTime.Config;
 
 namespace WorldTime.Commands;
 public class TzAutocompleteHandler : AutocompleteHandler {
-    private static readonly TimeSpan _maxListAge = TimeSpan.FromHours(6);
+    private static readonly TimeSpan _maxListAge = TimeSpan.FromHours(24);
     private static readonly ReaderWriterLockSlim _lock = new();
     private static ReadOnlyCollection<string> _baseZonesList;
     private static DateTimeOffset _lastListUpdate;
@@ -37,11 +36,9 @@ public class TzAutocompleteHandler : AutocompleteHandler {
             .ToHashSet();
 
         // List of zones by current popularity
-        using var db = new BotDatabaseContext(
-            new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(Program.SqlConnectionString)
-            .UseSnakeCaseNamingConvention()
-            .Options);
+        var opts = new DbContextOptionsBuilder<BotDatabaseContext>();
+        ShardManager.BuildSqlOptions(opts);
+        using var db = new BotDatabaseContext(opts.Options);
         var tzPopCount = db.UserEntries.AsNoTracking()
             .GroupBy(u => u.TimeZone)
             .Select(g => new { ZoneName = g.Key, Count = g.Count() })

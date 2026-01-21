@@ -1,12 +1,11 @@
+using System.Collections.ObjectModel;
 using Discord.Interactions;
 using NodaTime;
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Text;
+using WorldTime.Caching;
 using WorldTime.Data;
 
 namespace WorldTime.Commands;
+
 public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     protected const string ErrInvalidZone =
         ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
@@ -20,26 +19,16 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         _tzNameMap = new(tzNameMap);
     }
 
-    [NotNull]
-    public ShardInstance? Shard { get; set; }
-    [NotNull]
-    public BotDatabaseContext? DbContext { get; set; }
+    // Injected by DI:
+    public ShardInstance Shard { get; set; } = null!;
+    public BotDatabaseContext DbContext { get; set; } = null!;
+    public UserCache Cache { get; set; } = null!;
 
-    /// <summary>
-    /// Returns a string displaying the current time in the given time zone.
-    /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
-    /// </summary>
-    protected static string TzPrint(string zone, bool use12hr) {
-        var tzdb = DateTimeZoneProviders.Tzdb;
-        DateTimeZone tz = tzdb.GetZoneOrNull(zone) ?? throw new Exception("Encountered unknown time zone: " + zone);
-        var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
-        var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
-        string fullstr;
-        if (use12hr) {
-            var ap = now.ToString("tt", DateTimeFormatInfo.InvariantInfo).ToLowerInvariant();
-            fullstr = now.ToString($"MMM' 'dd', 'hh':'mm'{ap} 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
-        } else fullstr = now.ToString("dd'-'MMM', 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
-        return $"{sortpfx}● `{fullstr}`";
+    // Opportunistically caches user data coming in via interactions.
+    public override Task BeforeExecuteAsync(ICommandInfo command) {
+        if (Context.User is IGuildUser incoming)
+            Cache.Update(UserInfo.CreateFrom(incoming));
+        return base.BeforeExecuteAsync(command);
     }
 
     /// <summary>
@@ -51,63 +40,55 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
         return null;
     }
 
+    #region Database helper methods
     /// <summary>
-    /// Formats a user's name to a consistent, readable format which makes use of their nickname.
+    /// Inserts/updates the specified user in the database.
     /// </summary>
-    protected static string FormatName(SocketGuildUser user) {
-        static string escapeFormattingCharacters(string input) {
-            var result = new StringBuilder();
-            foreach (var c in input) {
-                if (c is '\\' or '_' or '~' or '*' or '@' or '`') {
-                    result.Append('\\');
-                }
-                result.Append(c);
-            }
-            return result.ToString();
+    protected async Task UpdateDbUserAsync(SocketGuildUser user, string timezone) {
+        var tuser = DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
+        if (tuser == null) {
+            tuser = new UserEntry() { UserId = user.Id, GuildId = user.Guild.Id };
+            DbContext.Add(tuser);
         }
-
-        if (user.DiscriminatorValue == 0) {
-            var username = escapeFormattingCharacters(user.GlobalName ?? user.Username);
-            if (user.Nickname != null) {
-                return $"{escapeFormattingCharacters(user.Nickname)} ({username})";
-            }
-            return username;
-        } else {
-            var username = escapeFormattingCharacters(user.Username);
-            if (user.Nickname != null) {
-                return $"{escapeFormattingCharacters(user.Nickname)} ({username}#{user.Discriminator})";
-            }
-            return $"{username}#{user.Discriminator}";
-        }
+        tuser.TimeZone = timezone;
+        await DbContext.SaveChangesAsync();
     }
 
     /// <summary>
-    /// Checks if the member cache for the specified guild needs to be filled, and sends a request if needed.
+    /// Gets the number of unique time zones in the database.
     /// </summary>
-    /// <remarks>
-    /// Due to a quirk in Discord.Net, the user cache cannot be filled until the command handler is no longer executing
-    /// regardless of if the request runs on its own thread, thus requiring the user to run the command again.
-    /// </remarks>
+    protected int GetDistinctZoneCount()
+        => DbContext.UserEntries.Select(u => u.TimeZone).Distinct().Count();
+
+    /// <summary>
+    /// Removes the specified user from the database.
+    /// </summary>
     /// <returns>
-    /// True if the guild's members are already downloaded. If false, the command handler must notify the user.
+    /// <see langword="true"/> if the removal was successful.
+    /// <see langword="false"/> if the user did not exist.
     /// </returns>
-    protected static async Task<bool> AreUsersDownloadedAsync(SocketGuild guild) {
-        static bool HasMostMembersDownloaded(SocketGuild guild) {
-            if (guild.HasAllMembers) return true;
-            if (guild.MemberCount > 30) {
-                // For guilds of size over 30, require 85% or more of the members to be known
-                // (26/30, 42/50, 255/300, etc)
-                return guild.DownloadedMemberCount >= (int)(guild.MemberCount * 0.85);
-            } else {
-                // For smaller guilds, fail if two or more members are missing
-                return guild.MemberCount - guild.DownloadedMemberCount <= 2;
-            }
-        }
-        if (HasMostMembersDownloaded(guild)) return true;
-        else {
-            // Event handler hangs if awaited normally or used with Task.Run
-            await Task.Factory.StartNew(guild.DownloadUsersAsync).ConfigureAwait(false);
-            return false;
-        }
+    protected async Task<bool> DeleteDbUserAsync(SocketGuildUser user) {
+        var tuser = DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
+        if (tuser == null) return false;
+        DbContext.Remove(tuser);
+        await DbContext.SaveChangesAsync();
+        return true;
     }
+
+    protected GuildConfiguration GetGuildConf(ulong guildId) {
+        var gs = DbContext.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault();
+        if (gs == null) {
+            gs = new() { GuildId = Context.Guild.Id };
+            DbContext.Add(gs);
+        }
+        return gs;
+    }
+
+    protected bool GetEphemeralConfirm()
+        => DbContext.GuildSettings
+            .Where(r => r.GuildId == Context.Guild.Id)
+            .SingleOrDefault()?.EphemeralConfirm ?? false;
+    #endregion
 }

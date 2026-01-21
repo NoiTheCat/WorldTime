@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using WorldTime.Config;
 
 namespace WorldTime;
 
@@ -14,6 +13,8 @@ class Program {
     /// Returns the amount of time the program has been running in a human-readable format.
     /// </summary>
     public static string BotUptime => (DateTimeOffset.UtcNow - _botStartTime).ToString("d' days, 'hh':'mm':'ss");
+
+    public static readonly ThreadLocal<Random> JitterSource = new(() => new Random());
 
     static async Task<int> Main(string[] args) {
         ConfigurationLoader cfg = null!;

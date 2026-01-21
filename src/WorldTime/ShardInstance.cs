@@ -1,7 +1,7 @@
-using WorldTime.BackgroundServices;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
-using System.Reflection;
+using WorldTime.BackgroundServices;
+using WorldTime.Caching;
 using WorldTime.Config;
 
 namespace WorldTime;
@@ -11,37 +11,45 @@ namespace WorldTime;
 public sealed class ShardInstance : IDisposable {
     private readonly ShardManager _manager;
     private readonly ShardBackgroundWorker _background;
-    private readonly InteractionService _interactionService;
     private readonly IServiceProvider _services;
 
     internal DiscordSocketClient DiscordClient { get; }
     public int ShardId => DiscordClient.ShardId;
-    /// <summary>
-    /// Returns a value showing the time in which the last background run successfully completed.
-    /// </summary>
-    internal DateTimeOffset LastBackgroundRun => _background.LastBackgroundRun;
-    /// <summary>
-    /// Returns the name of the background service currently in execution.
-    /// </summary>
-    internal string? CurrentExecutingService => _background.CurrentExecutingService;
     internal Configuration Config => _manager.Config;
+    internal UserCache Cache { get; }
+    internal Coordinator Fetcher { get; }
+
+    internal DateTimeOffset LastBackgroundRun => _background.LastBackgroundRun;
+    internal string? CurrentExecutingService => _background.CurrentExecutingService;
 
     public const string InternalError = ":x: An unknown error occurred. If it persists, please notify the bot owner.";
 
     /// <summary>
+    /// Sets up a dummy shard instance to use for early initialization of InteractionService.
+    /// </summary>
+    public ShardInstance(IServiceProvider localServices) {
+        _manager = null!;
+        _background = null!;
+        Fetcher = null!;
+
+        _services = localServices;
+        Cache = _services.GetRequiredService<UserCache>();
+        DiscordClient = _services.GetRequiredService<DiscordSocketClient>();
+    }
+
+    /// <summary>
     /// Prepares and configures the shard instances, but does not yet start its connection.
     /// </summary>
-    internal ShardInstance(ShardManager manager, IServiceProvider services) {
+    internal ShardInstance(ShardManager manager, IServiceProvider localServices) {
         _manager = manager;
-        _services = services;
+        Fetcher = new Coordinator(this);
 
+        _services = localServices;
+        Cache = _services.GetRequiredService<UserCache>();
         DiscordClient = _services.GetRequiredService<DiscordSocketClient>();
-        DiscordClient.Log += Client_Log;
-        DiscordClient.Ready += Client_Ready;
 
-        _interactionService = _services.GetRequiredService<InteractionService>();
+        DiscordClient.Log += Client_Log;
         DiscordClient.InteractionCreated += DiscordClient_InteractionCreated;
-        _interactionService.SlashCommandExecuted += InteractionService_SlashCommandExecuted;
 
         // Background task constructor begins background processing immediately.
         _background = new ShardBackgroundWorker(this);
@@ -51,7 +59,6 @@ public sealed class ShardInstance : IDisposable {
     /// Starts up this shard's connection to Discord and background task handling associated with it.
     /// </summary>
     public async Task StartAsync() {
-        await _interactionService.AddModulesAsync(Assembly.GetExecutingAssembly(), _services).ConfigureAwait(false);
         await DiscordClient.LoginAsync(TokenType.Bot, Config.BotToken).ConfigureAwait(false);
         await DiscordClient.StartAsync().ConfigureAwait(false);
     }
@@ -61,15 +68,11 @@ public sealed class ShardInstance : IDisposable {
     /// </summary>
     public void Dispose() {
         DiscordClient.InteractionCreated -= DiscordClient_InteractionCreated;
-        _interactionService.SlashCommandExecuted -= InteractionService_SlashCommandExecuted;
         _background.Dispose();
         if (!DiscordClient.LogoutAsync().Wait(5000)) {
             Log("Shutdown", "Hanging on logout! Continuing with dispose.");
         }
         DiscordClient.Dispose();
-        DiscordClient.Log -= Client_Log;
-        DiscordClient.Ready -= Client_Ready;
-        _interactionService.Dispose();
     }
 
     internal void Log(string source, string message) => Program.Log($"Shard {ShardId:00}] [{source}", message);
@@ -87,6 +90,7 @@ public sealed class ShardInstance : IDisposable {
                     case "Resumed previous session":
                     case "Failed to resume previous session":
                     case "Serializer Error": // The exception associated with this log appears a lot as of v3.2-ish
+                    case var s when s.StartsWith("Rate limit triggered"):
                         return Task.CompletedTask;
                 }
             }
@@ -106,33 +110,11 @@ public sealed class ShardInstance : IDisposable {
         return Task.CompletedTask;
     }
 
-    private async Task Client_Ready() {
-#if !DEBUG
-        // Update slash/interaction commands
-        if (ShardId == 0) {
-            await _interactionService.RegisterCommandsGloballyAsync(true);
-            Log(nameof(ShardInstance), "Updated global command registration.");
-        }
-#else
-        // Debug: Register our commands locally instead, in each guild we're in
-        if (DiscordClient.Guilds.Count > 5) {
-            Program.Log(nameof(ShardInstance), "Are you debugging in production?! Skipping DEBUG command registration.");
-            return;
-        } else {
-            foreach (var g in DiscordClient.Guilds) {
-                await _interactionService.RegisterCommandsToGuildAsync(g.Id, true).ConfigureAwait(false);
-                Log(nameof(ShardInstance), $"Updated DEBUG command registration in guild {g.Id}.");
-            }
-        }
-#endif
-    }
-
     // Slash command preparation and invocation
     private async Task DiscordClient_InteractionCreated(SocketInteraction arg) {
         var context = new SocketInteractionContext(DiscordClient, arg);
-
         try {
-            await _interactionService.ExecuteCommandAsync(context, _services).ConfigureAwait(false);
+            await _manager.Interactions.ExecuteCommandAsync(context, _services).ConfigureAwait(false);
         } catch (Exception e) {
             Log(nameof(DiscordClient_InteractionCreated), $"Unhandled exception. {e}");
             if (arg.Type == InteractionType.ApplicationCommand) {
@@ -140,36 +122,6 @@ public sealed class ShardInstance : IDisposable {
                 else await arg.RespondAsync(InternalError);
             }
         }
-    }
-
-    // Slash command logging and failed execution handling
-    private async Task InteractionService_SlashCommandExecuted(SlashCommandInfo info, IInteractionContext context, IResult result) {
-        string sender;
-        if (context.Guild != null) sender = $"{context.Guild}!{context.User}";
-        else sender = $"{context.User} in non-guild context";
-        var logresult = $"{(result.IsSuccess ? "Success" : "Fail")}: `/{info}` by {sender}.";
-
-        // Additional log information with error detail
-        if (result.Error != null) {
-            if (result.Error == InteractionCommandError.Exception && result is ExecuteResult exr) {
-                logresult += " Inner exception:\n" + exr.Exception.ToString();
-
-                // Respond if failed
-                try {
-                    await context.Interaction
-                        .RespondAsync(":x: An internal error occurred. If this persists, contact the bot owner.", ephemeral: true)
-                        .ConfigureAwait(false);
-                }
-                catch {
-                    // This was likely to fail anyway. Do nothing.
-                }
-            }
-            else {
-                logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
-            }
-        }
-
-        Log("Command", logresult);
     }
 
     // Gets total guild count from manager - for help command

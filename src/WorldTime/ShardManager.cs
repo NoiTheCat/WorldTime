@@ -1,9 +1,11 @@
 global using Discord;
 global using Discord.WebSocket;
+using System.Reflection;
 using System.Text;
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using WorldTime.Caching;
 using WorldTime.Config;
 using WorldTime.Data;
 
@@ -14,24 +16,30 @@ namespace WorldTime;
 /// status reports regarding the overall health of the application.
 /// </summary>
 class ShardManager : IDisposable {
-    /// <summary>
-    /// A dictionary with shard IDs as its keys and shard instances as its values.
-    /// When initialized, all keys will be created as configured. If an instance is removed,
-    /// a key's corresponding value will temporarily become null instead of the key/value
-    /// pair being removed.
-    /// </summary>
     private readonly Dictionary<int, ShardInstance?> _shards;
-
+    private readonly CancellationTokenSource _mainCancel = new();
     private readonly Task _statusTask;
-    private readonly CancellationTokenSource _mainCancel;
 
     internal Configuration Config { get; }
+    internal InteractionService Interactions { get; }
 
     public ShardManager(Configuration cfg) {
-        var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        var ver = Assembly.GetExecutingAssembly().GetName().Version;
         Log($"World Time v{ver!.ToString(3)} is starting...");
-
         Config = cfg;
+
+        // Early InteractionService init with dummy client and services
+        // Only required on command registration and first-time module analysis, respectively
+        var dummyclient = new DiscordSocketClient();
+        Interactions = new(dummyclient);
+        var dummysvcs = new ServiceCollection()
+            .AddSingleton(s => new ShardInstance(s))
+            .AddSingleton(new UserCache())
+            .AddSingleton(dummyclient)
+            .AddDbContext<BotDatabaseContext>(_ => { })
+            .BuildServiceProvider();
+        Interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), dummysvcs).Wait();
+        Interactions.SlashCommandExecuted += ReportSlashCommand;
 
         // Allocate shards based on configuration
         _shards = [];
@@ -39,10 +47,8 @@ class ShardManager : IDisposable {
             _shards.Add(i, null);
         }
 
-        // Start status reporting thread
-        _mainCancel = new CancellationTokenSource();
-        _statusTask = Task.Factory.StartNew(StatusLoop, _mainCancel.Token,
-                                            TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        // Start status reporting task
+        _statusTask = StatusLoop();
     }
 
     public void Dispose() {
@@ -62,30 +68,39 @@ class ShardManager : IDisposable {
         }
     }
 
+    #region Internal settings
+    private DiscordSocketConfig GetSocketConfig(int shardId) => new() {
+        ShardId = shardId,
+        TotalShards = Config.Sharding.Total,
+        LogLevel = LogSeverity.Info,
+        DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts | RetryMode.RetryRatelimit,
+        GatewayIntents = GatewayIntents.Guilds,
+        SuppressUnknownDispatchWarnings = true,
+#if DEBUG
+        LogGatewayIntentWarnings = false,
+#endif
+        FormatUsersInBidirectionalUnicode = false
+    };
+
+    internal static void BuildSqlOptions(DbContextOptionsBuilder options) =>
+        options.UseNpgsql(Program.SqlConnectionString)
+               .UseSnakeCaseNamingConvention();
+    #endregion
+
     private void Log(string message) => Program.Log(nameof(ShardManager), message);
 
     /// <summary>
     /// Creates and sets up a new shard instance.
     /// </summary>
     private async Task<ShardInstance> InitializeShard(int shardId) {
-        var clientConf = new DiscordSocketConfig() {
-            ShardId = shardId,
-            TotalShards = Config.Sharding.Total,
-            LogLevel = LogSeverity.Info,
-            DefaultRetryMode = RetryMode.Retry502 | RetryMode.RetryTimeouts,
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
-            SuppressUnknownDispatchWarnings = true,
-            LogGatewayIntentWarnings = false,
-            FormatUsersInBidirectionalUnicode = false
-        };
+        // Each shard gets its own unique config and service collection.
+        // The shard belongs in its own collection, gets initialized, then retrieved for the manager.
+        var localConf = GetSocketConfig(shardId);
         var services = new ServiceCollection()
             .AddSingleton(s => new ShardInstance(this, s))
-            .AddSingleton(s => new DiscordSocketClient(clientConf))
-            .AddSingleton(s => new InteractionService(s.GetRequiredService<DiscordSocketClient>()))
-            .AddDbContext<BotDatabaseContext>(options => {
-                options.UseNpgsql(Program.SqlConnectionString);
-                options.UseSnakeCaseNamingConvention();
-            })
+            .AddSingleton(new UserCache())
+            .AddSingleton(new DiscordSocketClient(localConf))
+            .AddDbContext<BotDatabaseContext>(BuildSqlOptions)
             .BuildServiceProvider();
         var newInstance = services.GetRequiredService<ShardInstance>();
         await newInstance.StartAsync().ConfigureAwait(false);
@@ -103,7 +118,7 @@ class ShardManager : IDisposable {
 
     private async Task StatusLoop() {
         try {
-            while (!_mainCancel.IsCancellationRequested) {
+            do {
                 var startAllowance = Config.Sharding.Interval;
 
                 // Iterate through shards, create report on each
@@ -124,27 +139,59 @@ class ShardManager : IDisposable {
 
                     var shard = _shards[i]!;
                     var client = shard.DiscordClient;
-                    // TODO look into better connection checking options. ConnectionState is not reliable.
                     shardStatuses.Append($"{Enum.GetName(typeof(ConnectionState), client.ConnectionState)} ({client.Latency:000}ms).");
-                    shardStatuses.Append($" G: {client.Guilds.Count:0000},");
-                    shardStatuses.Append($" U: {client.Guilds.Sum(s => s.Users.Count):000000},");
-                    shardStatuses.Append($" BG: {shard.CurrentExecutingService ?? "Idle"}");
+                    shardStatuses.Append($" Guilds: {client.Guilds.Count:0000},");
+                    shardStatuses.Append($" Cache: {shard.Cache.GuildsCount:000} guilds -> {shard.Cache.UsersCount:00000} users.");
+                    shardStatuses.Append($" Task: {shard.CurrentExecutingService ?? "Idle"}");
                     var lastRun = DateTimeOffset.UtcNow - shard.LastBackgroundRun;
                     shardStatuses.Append($" since {Math.Floor(lastRun.TotalMinutes):00}m{lastRun.Seconds:00}s ago.");
                     shardStatuses.AppendLine();
                 }
                 Log(shardStatuses.ToString().TrimEnd());
+                var ct = GetTotalGuildCount();
+                Log($"Total guilds: {ct:00,000} - Average shard load: {(double)ct / _shards.Count:0000.0}");
                 Log($"Uptime: {Program.BotUptime}");
 
                 await Task.Delay(Config.StatusInterval * 1000, _mainCancel.Token).ConfigureAwait(false);
-            }
+            } while (!_mainCancel.IsCancellationRequested);
         } catch (TaskCanceledException) { }
     }
 
-    public int GetTotalGuildCount() {
-        var sources = from sh in _shards
-                      where sh.Value != null
-                      select sh.Value.DiscordClient.Guilds.Count;
-        return sources.Sum();
+    public int GetTotalGuildCount() => (from sh in _shards
+                                        where sh.Value != null
+                                        select sh.Value.DiscordClient.Guilds.Count)
+                                        .Sum();
+
+    // Slash command logging and failed execution handling
+    private async Task ReportSlashCommand(SlashCommandInfo info, IInteractionContext context, IResult result) {
+        string sender;
+        if (context.Guild != null) sender = $"{context.Guild}!{context.User}";
+        else sender = $"{context.User} in non-guild context";
+        var logresult = $"{(result.IsSuccess ? "Success" : "Fail")}: `/{info}` by {sender}.";
+
+        // Additional log information with error detail
+        if (result.Error != null) {
+            if (result.Error == InteractionCommandError.Exception && result is ExecuteResult exr) {
+                logresult += " Inner exception:\n" + exr.Exception.ToString();
+
+                // Respond if failed
+                try {
+                    await context.Interaction
+                        .RespondAsync(":x: An internal error occurred. If this persists, contact the bot owner.", ephemeral: true)
+                        .ConfigureAwait(false);
+                } catch {
+                    // This was likely to fail anyway. Do nothing.
+                }
+            } else {
+                logresult += " " + Enum.GetName(typeof(InteractionCommandError), result.Error) + ": " + result.ErrorReason;
+            }
+        }
+
+        if (context.Guild != null) {
+            var gid = GetShardIdFor(context.Guild.Id)!.Value;
+            _shards[gid]!.Log("Command", logresult);
+        } else {
+            Log(logresult);
+        }
     }
 }
