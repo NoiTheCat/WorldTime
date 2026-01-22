@@ -8,7 +8,6 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         // No foreign key references between the two. This is on purpose.
-
         modelBuilder.Entity<GuildConfiguration>(e => {
             e.HasKey(k => k.GuildId);
             e.Property(p => p.Use12HourTime).HasDefaultValue(false);
@@ -19,5 +18,16 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
             e.HasIndex(c => c.GuildId);
             e.Property(p => p.LastSeen).HasDefaultValueSql("NOW()");
         });
+    }
+
+    /// <summary>
+    /// Quick little thing to get an instance outside of DI.
+    /// Assumes <see cref="NoiPublicBot.Instance"/> is initialized.
+    /// </summary>
+    internal static BotDatabaseContext New() {
+        return new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
+            .UseNpgsql(NoiPublicBot.Instance.SqlConnectionString)
+            .UseSnakeCaseNamingConvention()
+            .Options);
     }
 }

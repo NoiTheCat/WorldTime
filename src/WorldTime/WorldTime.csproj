@@ -51,7 +51,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../WorldTime.Config/WorldTime.Config.csproj" />
+    <ProjectReference Include="../Core/src/NpbCore/NpbCore.csproj" />
+    <ProjectReference Include="../Core/src/NpbCore.Config/NpbCore.Config.csproj" />
   </ItemGroup>
 
 </Project>
