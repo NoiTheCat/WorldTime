@@ -36,23 +36,15 @@
   </PropertyGroup>
 
   <!-- WHEN UPDATING EF CORE: Don't forget to also run "dotnet tool update (dash dash)local dotnet-ef" -->
-  <ItemGroup>
-    <PackageReference Include="Discord.Net" Version="3.18.0" />
-    <PackageReference Include="EFCore.NamingConventions" Version="10.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="NodaTime" Version="3.3.0" />
-    <PackageReference Include="Npgsql" Version="10.0.1" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Core/src/NpbCore/NpbCore.csproj" />
     <ProjectReference Include="../Core/src/NpbCore.Config/NpbCore.Config.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageReference Include="NodaTime" Version="3.3.0" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
 using NoiPublicBot.BackgroundServices;
 using WorldTime.Data;
@@ -21,7 +22,14 @@ class DataJanitor : BackgroundService {
 
         await _dbGate.WaitAsync(token);
         try {
+#if DEBUG
+            // splitting this out as a separate method this way prevents from accidentally removing a
+            // 'using' statement up above for the millionth time...
+            await DebugBumpAsync(token);
+            #pragma warning disable IDE0051
+#else
             await RemoveStaleEntriesAsync(token);
+#endif
         } finally {
             try {
                 _dbGate.Release();
@@ -34,10 +42,6 @@ class DataJanitor : BackgroundService {
 
         // Update guild users
         var now = DateTimeOffset.UtcNow;
-#if DEBUG
-        await db.UserEntries.ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
-        Log("DEBUG: Extended TTL of existing entries.");
-#else
         var cache = Shard.LocalServices.GetRequiredService<LocalCache>();
         var updatedUsers = 0;
         foreach (var guild in Shard.DiscordClient.Guilds) {
@@ -58,6 +62,12 @@ class DataJanitor : BackgroundService {
             .Where(gu => now - TimeSpan.FromDays(StaleUserThreashold) > gu.LastSeen)
             .ExecuteDeleteAsync(token);
         if (staleUserCount != 0) Log($"Discarded {staleUserCount} users across the whole database.");
-#endif
+    }
+
+    private async Task DebugBumpAsync(CancellationToken token) {
+        using var db = BotDatabaseContext.New();
+        var now = DateTimeOffset.UtcNow;
+        await db.UserEntries.ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
+        Log("DEBUG: Extended TTL of existing entries.");
     }
 }
