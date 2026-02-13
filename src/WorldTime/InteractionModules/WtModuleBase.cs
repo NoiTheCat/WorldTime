@@ -24,12 +24,12 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     // Injected by DI:
     public ShardInstance Shard { get; set; } = null!;
     public BotDatabaseContext DbContext { get; set; } = null!;
-    public LocalCache Cache { get; set; } = null!;
+    public UserCache<BotDatabaseContext> Cache { get; set; } = null!;
 
     // Opportunistically caches user data coming in via interactions.
     public override Task BeforeExecuteAsync(ICommandInfo command) {
         if (Context.User is IGuildUser incoming)
-            Cache.Update(UserInfo.CreateFrom(incoming));
+            Cache.Update(incoming);
         return base.BeforeExecuteAsync(command);
     }
 

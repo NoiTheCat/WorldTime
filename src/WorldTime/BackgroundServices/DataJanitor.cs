@@ -2,12 +2,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
 using NoiPublicBot.BackgroundServices;
+using NoiPublicBot.Cache;
 using WorldTime.Data;
 
 namespace WorldTime.BackgroundServices;
 
 // Keeps track of known existing users. Removes old unused data
-class DataJanitor : BackgroundService {
+sealed class DataJanitor : BackgroundService {
     private readonly int ProcessInterval;
     private static readonly SemaphoreSlim _dbGate = new(3);
 
@@ -42,11 +43,11 @@ class DataJanitor : BackgroundService {
 
         // Update guild users
         var now = DateTimeOffset.UtcNow;
-        var cache = Shard.LocalServices.GetRequiredService<LocalCache>();
+        var cache = Shard.LocalServices.GetRequiredService<UserCache<BotDatabaseContext>>();
         var updatedUsers = 0;
         foreach (var guild in Shard.DiscordClient.Guilds) {
-            var local = cache.GetEntriesForGuild(guild.Id, false)
-                .Select(e => e.UserId).ToList();
+            var local = cache.GetGuild(guild.Id, false)?.Keys;
+            if (local == null) continue;
 
             foreach (var queue in local.Chunk(1000)) {
                 updatedUsers += await db.UserEntries

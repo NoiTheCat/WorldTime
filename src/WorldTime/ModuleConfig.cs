@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
-using WorldTime;
+using NoiPublicBot.Cache;
 using WorldTime.BackgroundServices;
 using WorldTime.Data;
 
@@ -14,7 +14,7 @@ public class ModuleConfig : ModuleConfigBase {
     ];
 
     public override void PreShardSetup(ref IServiceCollection services) {
-        services.AddSingleton(s => new LocalCache(s.GetRequiredService<ShardInstance>()));
+        services.AddSingleton(s => new UserCache<BotDatabaseContext>(s.GetRequiredService<ShardInstance>()));
         services.AddDbContext<BotDatabaseContext>(opts =>
             opts.UseNpgsql(Instance.SqlConnectionString)
             .UseSnakeCaseNamingConvention());
@@ -22,8 +22,23 @@ public class ModuleConfig : ModuleConfigBase {
 
     public override void PostShardSetup(ShardInstance shard) {
         shard.OnStatusCheck += () => {
-            var c = shard.LocalServices.GetRequiredService<LocalCache>();
+            var c = shard.LocalServices.GetRequiredService<UserCache<BotDatabaseContext>>();
             return $"Cache: {c.GuildsCount:000} guilds -> {c.UsersCount:0000} users.";
         };
     }
+
+    // Surely I won't forget later on that I stuck this in here?
+    internal static UserCache<BotDatabaseContext>.CacheFetchFilter FilterAllMissing => (cache, context, guildId) => {
+        IEnumerable<ulong> local;
+        var existing = cache.GetGuild(guildId, true);
+        if (existing == null) local = [];
+        else local = existing.Select(e => e.Value.UserId);
+
+        var remote = context.UserEntries
+            .Where(e => e.GuildId == guildId)
+            .Select(e => e.UserId)
+            .ToList();
+
+        return [.. remote.Except(local)];
+    };
 }
