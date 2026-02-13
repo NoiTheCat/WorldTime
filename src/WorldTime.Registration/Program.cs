@@ -39,19 +39,45 @@ var services = new ServiceCollection()
             Database = conf.Database.Database,
             Username = conf.Database.Username,
             Password = conf.Database.Password
-        }.ConnectionString)
+        }.ConnectionString, pgopts => { pgopts.UseNodaTime(); })
         .UseSnakeCaseNamingConvention())
     .BuildServiceProvider();
 var ia = new InteractionService(rest);
 await ia.AddModulesAsync(Assembly.GetAssembly(typeof(ModuleConfig)), services);
 Console.WriteLine();
-Console.WriteLine("Found modules:");
-Console.WriteLine(string.Join(Environment.NewLine, ia.Modules));
+Console.WriteLine("Found modules: " + string.Join(' ', ia.Modules.Select(m => m.Name)));
+Console.WriteLine("Found slash commands: " + string.Join(' ', ia.SlashCommands.Select(m => m.Name)));
+Console.WriteLine("Found modals: " + string.Join(' ', ia.Modals.Select(m => m.Title)));
+Console.WriteLine("Found modal commands: " + string.Join(' ', ia.ModalCommands.Select(m => m.Name)));
+Console.WriteLine("Found context commands: " + string.Join(' ', ia.ContextCommands.Select(m => m.Name)));
+Console.WriteLine("Found component commands: " + string.Join(' ', ia.ComponentCommands.Select(m => m.Name)));
+
 Console.WriteLine();
+
+#if DEBUG
+Console.WriteLine("DEBUG variable was found. Commands will be updated locally to all joined guilds.");
+Console.WriteLine("Press enter to continue, otherwise quit now.");
+Console.ReadLine();
+
+Console.WriteLine("Sending registrations...");
+foreach (var g in await rest.GetGuildsAsync()) {
+    await ia.RegisterCommandsToGuildAsync(g.Id, true);
+    Console.WriteLine($"    ✔ To {g.Id}: {g.Name}");
+}
+
+// (Un)comment to remove all global registrations
+Console.WriteLine("Removing global registration");
+await rest.DeleteAllGlobalCommandsAsync();
+
+#else
+Console.WriteLine("This is the Release configuration. Commands will be updated globally.");
+Console.WriteLine("Press enter to continue, otherwise quit now.");
+Console.ReadLine();
 
 Console.WriteLine("Sending registration...");
 await ia.RegisterCommandsGloballyAsync(true);
 Console.WriteLine("All done! Give it about an hour to update globally.");
+#endif
 
 // Uncomment this to wipe all exsiting guild commands everywhere they may still exist
 // Console.WriteLine("Wiping all guild-specific registrations...");
