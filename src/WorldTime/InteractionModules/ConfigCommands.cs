@@ -1,11 +1,14 @@
+using Discord;
 using Discord.Interactions;
-using WorldTime.Caching;
+using Discord.WebSocket;
+using NoiPublicBot.Cache;
 
-namespace WorldTime.Commands;
+namespace WorldTime.InteractionModules;
+
 [Group("config", "Configuration commands for World Time.")]
 [DefaultMemberPermissions(GuildPermission.ManageGuild)]
 [CommandContextType(InteractionContextType.Guild)]
-public class ConfigCommands : CommandsBase {
+public class ConfigCommands : WTModuleBase {
     internal const string HelpUse12 = "Sets whether to use the 12-hour (AM/PM) format in time zone listings.";
     internal const string HelpSetFor = "Sets/updates time zone for a given user.";
     internal const string HelpRemoveFor = "Removes time zone for a given user.";

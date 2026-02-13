@@ -5,12 +5,14 @@ using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NoiPublicBot;
+using NoiPublicBot.Config;
+using Npgsql;
 using WorldTime;
-using WorldTime.Caching;
 using WorldTime.Data;
 
 Console.WriteLine("Loading config");
-var conf = new ConfigurationLoader(Environment.GetCommandLineArgs());
+var conf = Loader.LoadAppConfiguration(args);
 
 Console.WriteLine("Connecting to service");
 var rest = new DiscordRestClient(new DiscordRestConfig {
@@ -20,7 +22,7 @@ rest.Log += arg => {
     Console.WriteLine($"[DiscordRestClient] {arg.Severity}: {arg.Message}");
     return Task.CompletedTask;
 };
-await rest.LoginAsync(TokenType.Bot, conf.Config.BotToken);
+await rest.LoginAsync(TokenType.Bot, conf.BotToken);
 var appId = (await rest.GetApplicationInfoAsync()).Id;
 Console.WriteLine($"Connected as application with ID {appId}");
 
@@ -29,12 +31,23 @@ Console.WriteLine("Interactions setup and module registration");
 var services = new ServiceCollection()
     .AddSingleton(rest)
     .AddSingleton(s => new ShardInstance(s))
-    .AddSingleton(new UserCache())
+    .AddSingleton(s => new LocalCache(s.GetRequiredService<ShardInstance>()))
     .AddSingleton(new DiscordSocketClient())
-    .AddDbContext<BotDatabaseContext>(options => options.UseNpgsql(conf.GetConnectionString()).UseSnakeCaseNamingConvention())
+    .AddDbContext<BotDatabaseContext>(options => options
+        .UseNpgsql(new NpgsqlConnectionStringBuilder() {
+            Host = conf.Database.Host,
+            Database = conf.Database.Database,
+            Username = conf.Database.Username,
+            Password = conf.Database.Password
+        }.ConnectionString)
+        .UseSnakeCaseNamingConvention())
     .BuildServiceProvider();
 var ia = new InteractionService(rest);
-await ia.AddModulesAsync(Assembly.GetAssembly(typeof(ShardInstance)), services);
+await ia.AddModulesAsync(Assembly.GetAssembly(typeof(ModuleConfig)), services);
+Console.WriteLine();
+Console.WriteLine("Found modules:");
+Console.WriteLine(string.Join(Environment.NewLine, ia.Modules));
+Console.WriteLine();
 
 Console.WriteLine("Sending registration...");
 await ia.RegisterCommandsGloballyAsync(true);

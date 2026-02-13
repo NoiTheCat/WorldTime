@@ -1,19 +1,21 @@
 using System.Collections.ObjectModel;
+using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using NodaTime;
-using WorldTime.Caching;
+using NoiPublicBot;
+using NoiPublicBot.Cache;
 using WorldTime.Data;
 
-namespace WorldTime.Commands;
+namespace WorldTime.InteractionModules;
 
-public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
+public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     protected const string ErrInvalidZone =
         ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
-    protected const string ErrNoUserCache = ":warning: Oops, bot wasn't ready. Please try again in a moment.";
 
     private static readonly ReadOnlyDictionary<string, string> _tzNameMap;
 
-    static CommandsBase() {
+    static WTModuleBase() {
         Dictionary<string, string> tzNameMap = new(StringComparer.OrdinalIgnoreCase);
         foreach (var name in DateTimeZoneProviders.Tzdb.Ids) tzNameMap.Add(name, name);
         _tzNameMap = new(tzNameMap);
@@ -22,7 +24,7 @@ public class CommandsBase : InteractionModuleBase<SocketInteractionContext> {
     // Injected by DI:
     public ShardInstance Shard { get; set; } = null!;
     public BotDatabaseContext DbContext { get; set; } = null!;
-    public UserCache Cache { get; set; } = null!;
+    public LocalCache Cache { get; set; } = null!;
 
     // Opportunistically caches user data coming in via interactions.
     public override Task BeforeExecuteAsync(ICommandInfo command) {

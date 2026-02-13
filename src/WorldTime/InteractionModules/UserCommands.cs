@@ -1,12 +1,14 @@
 ﻿using System.Globalization;
 using System.Text;
+using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using NodaTime;
-using WorldTime.Caching;
+using NoiPublicBot.Cache;
 
-namespace WorldTime.Commands;
+namespace WorldTime.InteractionModules;
 
-public class UserCommands : CommandsBase {
+public class UserCommands : WTModuleBase {
     [SlashCommand("list", HelpCommand.HelpList)]
     [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
@@ -18,7 +20,7 @@ public class UserCommands : CommandsBase {
         }
 
         var isDeferred = false;
-        var refresh = Shard.Fetcher.RequestGuildRefreshAsync(DbContext, Context.Guild.Id);
+        var refresh = Cache.RequestGuildRefreshAsync(DbContext, Context.Guild.Id);
         if (!refresh.IsCompleted) {
             // This may take a while
             isDeferred = true;

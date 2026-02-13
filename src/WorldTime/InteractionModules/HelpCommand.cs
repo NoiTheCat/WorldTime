@@ -1,8 +1,10 @@
+using Discord;
 using Discord.Interactions;
+using NoiPublicBot;
 
-namespace WorldTime.Commands;
+namespace WorldTime.InteractionModules;
 
-public class HelpCommand : CommandsBase {
+public class HelpCommand : WTModuleBase {
     internal const string HelpHelp = "Displays a list of available bot commands.";
     internal const string HelpList = "Shows the current time for all recently active known users.";
     internal const string HelpSet = "Adds or updates your time zone to the bot.";
@@ -12,13 +14,11 @@ public class HelpCommand : CommandsBase {
     [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
     public async Task CmdHelp() {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
-        var guildct = Shard.GetTotalGuildCount();
-        var uniquetz = GetDistinctZoneCount();
         await RespondAsync(embed: new EmbedBuilder() {
             Title = "Help & About",
-            // TODO potential bug - if multiple instances run this bot, guild counts will become inaccurate. consider removal
             Description =
-                $"World Time v{version} - Serving {guildct} communities across {uniquetz} time zones.\n\n"
+                $"World Time v{version}\n"
+                + $"-# Shard {Shard.ShardId:00} - {Instance.BotUptime}\n\n"
                 + "This bot is provided for free, without any paywalled 'premium' features. "
                 + "If you've found this bot useful, please consider contributing via the "
                 + "bot author's page on Ko-fi: https://ko-fi.com/noithecat.",
