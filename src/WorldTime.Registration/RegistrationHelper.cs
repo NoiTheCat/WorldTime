@@ -6,10 +6,9 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
-using NoiPublicBot.Cache;
+using NoiPublicBot.Common;
 using NoiPublicBot.Config;
 using Npgsql;
-using WorldTime;
 using WorldTime.Data;
 
 Console.WriteLine("Loading config");

@@ -3,8 +3,9 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using NodaTime;
+using NodaTime.Extensions;
 using NoiPublicBot;
-using NoiPublicBot.Cache;
+using NoiPublicBot.Common;
 using WorldTime.Data;
 
 namespace WorldTime.InteractionModules;
@@ -13,11 +14,11 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     protected const string ErrInvalidZone =
         ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
 
-    private static readonly ReadOnlyDictionary<string, string> _tzNameMap;
+    private static readonly ReadOnlyDictionary<string, DateTimeZone> _tzNameMap;
 
     static WTModuleBase() {
-        Dictionary<string, string> tzNameMap = new(StringComparer.OrdinalIgnoreCase);
-        foreach (var name in DateTimeZoneProviders.Tzdb.Ids) tzNameMap.Add(name, name);
+        Dictionary<string, DateTimeZone> tzNameMap = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var zone in DateTimeZoneProviders.Tzdb.GetAllZones()) tzNameMap.Add(zone.Id, zone!);
         _tzNameMap = new(tzNameMap);
     }
 
@@ -36,7 +37,7 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     /// <summary>
     /// Checks given time zone input. Returns a valid string for use with NodaTime, or null.
     /// </summary>
-    protected static string? ParseTimeZone(string tzinput) {
+    protected static DateTimeZone? ParseTimeZone(string tzinput) {
         if (tzinput.Equals("Asia/Calcutta", StringComparison.OrdinalIgnoreCase)) tzinput = "Asia/Kolkata";
         if (_tzNameMap.TryGetValue(tzinput, out var name)) return name;
         return null;
@@ -46,7 +47,7 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     /// <summary>
     /// Inserts/updates the specified user in the database.
     /// </summary>
-    protected async Task UpdateDbUserAsync(SocketGuildUser user, string timezone) {
+    protected async Task UpdateDbUserAsync(SocketGuildUser user, DateTimeZone timezone) {
         var tuser = DbContext.UserEntries
             .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
         if (tuser == null) {

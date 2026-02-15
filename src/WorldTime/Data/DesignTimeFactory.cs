@@ -16,7 +16,8 @@ public class DesignTimeFactory : IDesignTimeDbContextFactory<BotDatabaseContext>
             Password = conf.Password
         }.ConnectionString;
         return new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(connstr)
+            .UseNpgsql(connstr,
+            npgopts => npgopts.UseNodaTime())
             .UseSnakeCaseNamingConvention()
             .Options);
     }

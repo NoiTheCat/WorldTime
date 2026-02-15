@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 using NoiPublicBot;
 using NoiPublicBot.BackgroundServices;
-using NoiPublicBot.Cache;
+using NoiPublicBot.Common;
 using WorldTime.Data;
 
 namespace WorldTime.BackgroundServices;
@@ -24,13 +25,11 @@ sealed class DataJanitor : BackgroundService {
         await _dbGate.WaitAsync(token);
         try {
 #if DEBUG
-            // splitting this out as a separate method this way prevents from accidentally removing a
-            // 'using' statement up above for the millionth time...
             await DebugBumpAsync(token);
-            #pragma warning disable IDE0051
-#else
-            await RemoveStaleEntriesAsync(token);
+            return;
+#pragma warning disable CS0162
 #endif
+            await RemoveStaleEntriesAsync(token);
         } finally {
             try {
                 _dbGate.Release();
@@ -42,7 +41,7 @@ sealed class DataJanitor : BackgroundService {
         using var db = BotDatabaseContext.New();
 
         // Update guild users
-        var now = DateTimeOffset.UtcNow;
+        var now = SystemClock.Instance.GetCurrentInstant();
         var cache = Shard.LocalServices.GetRequiredService<UserCache<BotDatabaseContext>>();
         var updatedUsers = 0;
         foreach (var guild in Shard.DiscordClient.Guilds) {
@@ -60,15 +59,17 @@ sealed class DataJanitor : BackgroundService {
 
         // And let go of old data
         var staleUserCount = await db.UserEntries
-            .Where(gu => now - TimeSpan.FromDays(StaleUserThreashold) > gu.LastSeen)
+            .Where(gu => now - Duration.FromDays(StaleUserThreashold) > gu.LastSeen)
             .ExecuteDeleteAsync(token);
         if (staleUserCount != 0) Log($"Discarded {staleUserCount} users across the whole database.");
     }
 
+#if DEBUG
     private async Task DebugBumpAsync(CancellationToken token) {
         using var db = BotDatabaseContext.New();
-        var now = DateTimeOffset.UtcNow;
+        var now = SystemClock.Instance.GetCurrentInstant();
         await db.UserEntries.ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
         Log("DEBUG: Extended TTL of existing entries.");
     }
+#endif
 }

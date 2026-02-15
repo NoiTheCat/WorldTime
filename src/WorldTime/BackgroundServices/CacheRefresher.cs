@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot.BackgroundServices;
-using NoiPublicBot.Cache;
+using NoiPublicBot.Common;
 using WorldTime.Data;
 
 namespace WorldTime.BackgroundServices;

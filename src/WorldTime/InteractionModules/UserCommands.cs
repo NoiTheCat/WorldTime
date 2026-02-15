@@ -4,7 +4,6 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using NodaTime;
-using NoiPublicBot.Cache;
 
 namespace WorldTime.InteractionModules;
 
@@ -163,9 +162,7 @@ public class UserCommands : WTModuleBase {
     /// Returns a string displaying the current time in the given time zone.
     /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
     /// </summary>
-    private string TzPrint(string zone) {
-        var tzdb = DateTimeZoneProviders.Tzdb;
-        DateTimeZone tz = tzdb.GetZoneOrNull(zone) ?? throw new Exception("Encountered unknown time zone: " + zone);
+    private string TzPrint(DateTimeZone tz) {
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
         var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
         string fullstr;

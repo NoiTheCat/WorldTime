@@ -1,13 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
-using NoiPublicBot.Cache;
+using NoiPublicBot.Common;
 using WorldTime.BackgroundServices;
 using WorldTime.Data;
 
 public class ModuleConfig : ModuleConfigBase {
-    public override string AppName => "WorldTime";
-
     public override IEnumerable<Type> BackgroundServices => [
         typeof(DataJanitor),
         typeof(CacheRefresher)
@@ -15,15 +13,16 @@ public class ModuleConfig : ModuleConfigBase {
 
     public override void PreShardSetup(ref IServiceCollection services) {
         services.AddSingleton(s => new UserCache<BotDatabaseContext>(s.GetRequiredService<ShardInstance>()));
-        services.AddDbContext<BotDatabaseContext>(opts =>
-            opts.UseNpgsql(Instance.SqlConnectionString)
+        services.AddDbContext<BotDatabaseContext>(opts => opts
+            .UseNpgsql(Instance.SqlConnectionString.ConnectionString,
+            npgopts => npgopts.UseNodaTime())
             .UseSnakeCaseNamingConvention());
     }
 
     public override void PostShardSetup(ShardInstance shard) {
         shard.OnStatusCheck += () => {
             var c = shard.LocalServices.GetRequiredService<UserCache<BotDatabaseContext>>();
-            return $"Cache: {c.GuildsCount:000} guilds -> {c.UsersCount:0000} users.";
+            return $"Cache: {c.GuildsCount:0000} guilds -> {c.UsersCount:00,000} users.";
         };
     }
 
