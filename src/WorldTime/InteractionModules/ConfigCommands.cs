@@ -1,7 +1,6 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using NoiPublicBot.Cache;
 
 namespace WorldTime.InteractionModules;
 
@@ -37,7 +36,7 @@ public class ConfigCommands : WTModuleBase {
     [SlashCommand("set-for", HelpSetFor)]
     public async Task CmdSetFor([Summary(description: "The user whose time zone to modify.")] SocketGuildUser user,
                                  [Summary(description: "The new time zone to set.")] string zone) {
-        Cache.Update(UserInfo.CreateFrom(user));
+        Cache.Update(user);
         
         var newtz = ParseTimeZone(zone);
         if (newtz == null) {
@@ -51,7 +50,7 @@ public class ConfigCommands : WTModuleBase {
 
     [SlashCommand("remove-for", HelpRemoveFor)]
     public async Task CmdRemoveFor([Summary(description: "The user whose time zone to remove.")] SocketGuildUser user) {
-        Cache.Update(UserInfo.CreateFrom(user));
+        Cache.Update(user);
         
         if (await DeleteDbUserAsync(user).ConfigureAwait(false)) {
             await RespondAsync($":white_check_mark: Removed zone information for {user}.").ConfigureAwait(false);

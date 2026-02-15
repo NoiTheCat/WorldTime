@@ -4,7 +4,6 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using NodaTime;
-using NoiPublicBot.Cache;
 
 namespace WorldTime.InteractionModules;
 
@@ -13,14 +12,14 @@ public class UserCommands : WTModuleBase {
     [CommandContextType(InteractionContextType.Guild)]
     public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
         if (user is not null) {
-            Cache.Update(UserInfo.CreateFrom(user));
+            Cache.Update(user);
             // User obtained passively. Go ahead with single listing with this data.
             await CmdListWithUserParamAsync(user).ConfigureAwait(false);
             return;
         }
 
         var isDeferred = false;
-        var refresh = Cache.RequestGuildRefreshAsync(DbContext, Context.Guild.Id);
+        var refresh = Cache.RequestGuildRefreshAsync(DbContext, Context.Guild.Id, ModuleConfig.FilterAllMissing);
         if (!refresh.IsCompleted) {
             // This may take a while
             isDeferred = true;
@@ -45,7 +44,7 @@ public class UserCommands : WTModuleBase {
                 .Select(e => (Area: e.Key, Subscribers: e.SelectMany(u => u.Users).Shuffle()))
                 .OrderBy(x => x.Area)
                 .ToList();
-        var cacheusers = Cache.GetGuildCopy(Context.Guild.Id);
+        var cacheusers = Cache.GetGuild(Context.Guild.Id);
         if (cacheusers == null || sortedUsers.Count == 0) {
             if (isDeferred) await ModifyOriginalResponseAsync(response => response.Content = NoResultText);
             else await RespondAsync(NoResultText, ephemeral: true).ConfigureAwait(false);
@@ -116,7 +115,7 @@ public class UserCommands : WTModuleBase {
             return;
         }
 
-        var resulttext = TzPrint(zone)[6..] + ": " + Cache.GetGuildCopy(Context.Guild.Id)![target.Id].FormatName();
+        var resulttext = TzPrint(zone)[6..] + ": " + Cache.GetGuild(Context.Guild.Id)![target.Id].FormatName();
         await RespondAsync(embed: new EmbedBuilder().WithDescription(resulttext).Build());
     }
 
@@ -163,9 +162,7 @@ public class UserCommands : WTModuleBase {
     /// Returns a string displaying the current time in the given time zone.
     /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
     /// </summary>
-    private string TzPrint(string zone) {
-        var tzdb = DateTimeZoneProviders.Tzdb;
-        DateTimeZone tz = tzdb.GetZoneOrNull(zone) ?? throw new Exception("Encountered unknown time zone: " + zone);
+    private string TzPrint(DateTimeZone tz) {
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
         var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
         string fullstr;

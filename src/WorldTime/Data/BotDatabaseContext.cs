@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using NoiPublicBot;
 
 namespace WorldTime.Data;
 
@@ -17,6 +19,11 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
             e.HasKey(e => new { e.GuildId, e.UserId });
             e.HasIndex(c => c.GuildId);
             e.Property(p => p.LastSeen).HasDefaultValueSql("NOW()");
+            e.Property(p => p.TimeZone)
+                .HasConversion(
+                    enval => enval == null ? null : enval.Id,
+                    dbstr => DateTimeZoneProviders.Tzdb[dbstr!]
+                );
         });
     }
 
@@ -26,7 +33,8 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
     /// </summary>
     internal static BotDatabaseContext New() {
         return new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(NoiPublicBot.Instance.SqlConnectionString)
+            .UseNpgsql(Instance.SqlConnectionString.ConnectionString,
+            npgopts => npgopts.UseNodaTime())
             .UseSnakeCaseNamingConvention()
             .Options);
     }
