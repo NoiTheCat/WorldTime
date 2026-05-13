@@ -5,7 +5,7 @@ using Discord.WebSocket;
 using NodaTime;
 using NodaTime.Extensions;
 using NoiPublicBot;
-using NoiPublicBot.Common;
+using NoiPublicBot.Common.UserCache;
 using WorldTime.Data;
 
 namespace WorldTime.InteractionModules;

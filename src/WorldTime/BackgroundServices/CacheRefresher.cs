@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot.BackgroundServices;
 using NoiPublicBot.Common;
+using NoiPublicBot.Common.UserCache;
 using WorldTime.Data;
 
 namespace WorldTime.BackgroundServices;
