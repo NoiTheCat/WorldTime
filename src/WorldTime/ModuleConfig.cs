@@ -1,9 +1,11 @@
+using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NoiPublicBot;
 using NoiPublicBot.Common.UserCache;
 using WorldTime.BackgroundServices;
 using WorldTime.Data;
+using WorldTime.Localization;
 
 public class ModuleConfig : ModuleConfigBase {
     public override IEnumerable<Type> BackgroundServices => [
@@ -12,7 +14,9 @@ public class ModuleConfig : ModuleConfigBase {
     ];
 
     public override void PreShardSetup(ref IServiceCollection services) {
-        services.AddSingleton(s => new UserCache<BotDatabaseContext>(s.GetRequiredService<ShardInstance>()));
+        services.AddSingleton(
+            s => new UserCache<BotDatabaseContext>(s.GetRequiredService<ShardInstance>(),
+                                                   new EFWarmCacheProvider(BotDatabaseContext.New)));
         services.AddDbContext<BotDatabaseContext>(opts => opts
             .UseNpgsql(Instance.SqlConnectionString.ConnectionString,
             npgopts => npgopts.UseNodaTime())
@@ -47,4 +51,5 @@ public class ModuleConfig : ModuleConfigBase {
     public override Func<string, string> GenericErrorProvider
         => loc => StringProviders.Responses.Get(loc, "errGeneric");
 
+    public override DbContext? StartupMigrationsDbContext => BotDatabaseContext.New();
 }
