@@ -40,4 +40,11 @@ public class ModuleConfig : ModuleConfigBase {
 
         return [.. remote.Except(local)];
     };
+
+    public override ILocalizationManager? LocalizationManager
+        => new JsonLocalizationManager("Localization", "Commands");
+
+    public override Func<string, string> GenericErrorProvider
+        => loc => StringProviders.Responses.Get(loc, "errGeneric");
+
 }

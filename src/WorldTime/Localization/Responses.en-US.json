@@ -1,0 +1,9 @@
+{
+    // This file roughly follows the hierarchy from Commands, but is not subject to any outside restrictions.
+    // Strings not found in other translations will fall back to those found in this file.
+    // Common responses:
+    "errGeneric": ":x: An unknown error occurred. If it persists, please notify the bot owner.",
+    "errParseDate": ":x: The date you specified is not a valid calendar date.",
+    "errParseZone": ":x: Unknown time zone name.\nTo find your time zone, please refer to: https://zones.arilyn.cc/",
+    "loadingUsers": "<a:bot_thinking:1468047802721374403> Please wait a moment. Gathering data...",
+}
