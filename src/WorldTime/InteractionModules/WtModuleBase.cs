@@ -7,13 +7,11 @@ using NodaTime.Extensions;
 using NoiPublicBot;
 using NoiPublicBot.Common.UserCache;
 using WorldTime.Data;
+using static WorldTime.Localization.StringProviders;
 
 namespace WorldTime.InteractionModules;
 
 public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
-    protected const string ErrInvalidZone =
-        ":x: Not a valid zone name. To find your zone, you may refer to a site such as <https://zones.arilyn.cc/>.";
-
     private static readonly ReadOnlyDictionary<string, DateTimeZone> _tzNameMap;
 
     static WTModuleBase() {
@@ -26,6 +24,10 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     public ShardInstance Shard { get; set; } = null!;
     public BotDatabaseContext DbContext { get; set; } = null!;
     public UserCache<BotDatabaseContext> Cache { get; set; } = null!;
+
+    // Other helpers:
+    protected string GuildLocale => Context.Interaction.GuildLocale;
+    protected string UserLocale => Context.Interaction.UserLocale;
 
     // Opportunistically caches user data coming in via interactions.
     public override Task BeforeExecuteAsync(ICommandInfo command) {
@@ -59,12 +61,6 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     }
 
     /// <summary>
-    /// Gets the number of unique time zones in the database.
-    /// </summary>
-    protected int GetDistinctZoneCount()
-        => DbContext.UserEntries.Select(u => u.TimeZone).Distinct().Count();
-
-    /// <summary>
     /// Removes the specified user from the database.
     /// </summary>
     /// <returns>
@@ -89,9 +85,18 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
         return gs;
     }
 
-    protected bool GetEphemeralConfirm()
+    protected bool HasEphemeralConfirms()
         => DbContext.GuildSettings
             .Where(r => r.GuildId == Context.Guild.Id)
             .SingleOrDefault()?.EphemeralConfirm ?? false;
     #endregion
+
+    /// <summary>Get string from Commands using guild locale.</summary>
+    protected string LCg(string key, params object?[] format) => Commands.Get(GuildLocale, key, format);
+    /// <summary>Get string from Commands using user locale.</summary>
+    protected string LCu(string key, params object?[] format) => Commands.Get(UserLocale, key, format);
+    /// <summary>Get string from Responses using guild locale.</summary>
+    protected string LRg(string key, params object?[] format) => Responses.Get(GuildLocale, key, format);
+    /// <summary>Get string from Responses using user locale.</summary>
+    protected string LRu(string key, params object?[] format) => Responses.Get(UserLocale, key, format);
 }
