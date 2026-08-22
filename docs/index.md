@@ -3,32 +3,29 @@ layout: default
 title: Documentation
 ---
 # World Time
+
+**Social time zone lookups made easy!**
+
 World Time is a simple utility bot, providing users with a quick way to check the current time and day for the users in your server.
 
-### Getting started
-Invite the bot via the link on the sidebar. Once invited, the bot can be used through its commands any time it is needed.
-
-For a list of commands, see its `/help` command.
-
-### Why would I even want to use this?
-Here's a hypothetical scenario:
-
-Imagine that you are one user amongst many in a large community, its other users scattered all around the world. Though you feel a yearning for conversation, spurred on by a sense of boredom or unfulfillment, few seem to be available. Their statuses tease their potential existence, but they have been idle for quite some time. Surely they're around?
-
-You are a courteous one, and you do not make assumptions. The concept of time zones crosses the front of your mind; different places around the world being subject to hours different from yours. You even consider for a moment the uncomfortable notion that others may have lives beyond the reaches of the internet. All of this ultimately lead to one important question burning at the front of your mind: Is this even a good time?
+For communites with members spread out all over, sometimes you want to quickly see what time it is for others without bothering them. Find out what day it is, if it's past midnight, if it's their bedtime. Getting an idea of which portion of the regulars might be up and available to chat. The question is always there: is this a good time? Hopefully this bot can help you with the answer.
 
 ![Example output](assets/images/example.png)
 
-Oh. Well... Hm.
+Oh. Well. Right *now* isn't a good time, I guess.
+
+### Getting started
+Use [this link](https://discord.com/api/oauth2/authorize?client_id=447266583459528715&permissions=16384&scope=bot%20applications.commands) to invite the bot to a server of your choosing. There are no additional permissions to set up.
+
+Next, you might like to do the following:
+* Register your time, encourage active members to do the same
+* Modify options under your server's Interactions settings to limit command usage
+
+Have a look at the `/help` command for further options available to users and/or moderators.
 
 ### Supporting the bot
-World Time is provided for free, period. No paywalled features, subscriptions, or monetization insentices. World Time is an independent hobby project done in my spare time, and all costs associated with it come out of my pocket. My only interest is to provide something that I hope others find as useful as I do.
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/J3J65TW2E)
 
-That said, this bot has proven to be far more popular than I ever anticipated, and keeping things running has occasionally strained me both financially and time-wise. If you'd like, please consider pitching in a bit to cover my recurring costs by checking out my Ko-fi page on the sidebar.
+World Time is provided for free - period. There are no paywalls, subscriptions, or hidden exclusive features. This is an independent hobby project done in my spare time and the costs to keep up and running come out of my own pocket. My goal is to provide something that I hope others can find to be useful and helpful; something that might bring a bit of happiness to others.
 
-### Privacy and Security
-This bot collects and stores only information necessary for its operation, in this case being user, server, and role IDs. As little information is stored as possible and access to the database is strongly restricted through proper security practices.
-
-Time zones are not shared between servers *by design*, for those preferring to be selective about where they want their region known. Users must set their times in each individual server.
-
-Any questions and concerns regarding data privacy, security, and retention may be sent to the bot author via the support server or by opening an issue on GitHub.
+If you'd like, please consider pitching in a bit to cover my recurring costs (or just to buy me a drink, a snack...) by checking out my Ko-fi page.
