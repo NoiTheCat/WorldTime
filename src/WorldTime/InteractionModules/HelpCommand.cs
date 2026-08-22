@@ -1,48 +1,66 @@
 using Discord;
 using Discord.Interactions;
 using NoiPublicBot;
+using static WorldTime.Localization.CommandsEnUS;
 
 namespace WorldTime.InteractionModules;
 
 public class HelpCommand : WTModuleBase {
-    internal const string HelpHelp = "Displays a list of available bot commands.";
-    internal const string HelpList = "Shows the current time for all recently active known users.";
-    internal const string HelpSet = "Adds or updates your time zone to the bot.";
-    internal const string HelpRemove = "Removes your time zone information from this bot.";
+    private bool? _isGuild;
 
-    [SlashCommand("help", HelpHelp)]
+    // This is the only command that can be invoked outside a guild.
+    // Need custom logic to determine whether to use guild or user-specific locale.
+    private Func<string, string> LR {
+        get {
+            if (!_isGuild.HasValue) _isGuild = Context.Channel is not IDMChannel;
+            return _isGuild.Value ? key => LRg(key) : key => LRu(key);
+        }
+    }
+    private Func<string, string> LC {
+        get {
+            if (!_isGuild.HasValue) _isGuild = Context.Channel is not IDMChannel;
+            return _isGuild.Value ? key => LCg(key) : key => LCu(key);
+        }
+    }
+
+    [SlashCommand(Help.Name, Help.Description)]
     [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
     public async Task CmdHelp() {
-        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
-        await RespondAsync(embed: new EmbedBuilder() {
-            Title = "Help & About",
-            Description =
-                $"World Time v{version}\n"
-                + $"-# Shard {Shard.ShardId:00} - {Instance.BotUptime}\n\n"
-                + "This bot is provided for free, without any paywalled 'premium' features. "
-                + "If you've found this bot useful, please consider contributing via the "
-                + "bot author's page on Ko-fi: https://ko-fi.com/noithecat.",
-            Footer = new EmbedFooterBuilder() {
-                IconUrl = Context.Client.CurrentUser.GetAvatarUrl(),
-                Text = "World Time"
-            }
-        }.AddField(inline: false, name: "Commands", value:
-            $"""
-            `/help` - {HelpHelp}
-            `/list` - {HelpList}
-            `/set` - {HelpSet}
-            `/remove` - {HelpRemove}
-            """
-        ).AddField(inline: false, name: "Admin commands", value:
-            $"""
-            `/config use-12hour` - {ConfigCommands.HelpUse12}
-            `/config private-confirms` - {ConfigCommands.HelpPrivateConfirms}
-            `/set-for` - {ConfigCommands.HelpSetFor}
-            `/remove-for` - {ConfigCommands.HelpRemoveFor}
-            """
-        ).AddField(inline: false, name: "Zones", value:
-            "This bot accepts zone names from the IANA Time Zone Database (a.k.a. Olson Database). " +
-            "A useful tool to determine yours can be found at: https://zones.arilyn.cc/"
-        ).Build());
+#if DEBUG
+        var ver = "I'm a Debug build";
+#else
+        var ver = "v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!.ToString(3);
+#endif
+
+        var (reg, mod) = BuildHelpMessage();
+        var result = new EmbedBuilder()
+            .WithAuthor(LR("help.mainHead"))
+            .WithFooter($"World Time {ver} - Shard {Shard.ShardId:00} up {Instance.BotUptime}",
+                Context.Client.CurrentUser.GetAvatarUrl())
+            .WithDescription(LR("help.mainBody"))
+            .AddField(LR("help.regCmdHead"), reg)
+            .AddField(LR("help.regCmdHead"), mod)
+            .AddField(LR("help.zonesHead"), LR("help.zonesBody"))
+            .Build();
+        await RespondAsync(text: _isGuild!.Value ? null : LR("help.warnDM"), embed: result).ConfigureAwait(false);
+    }
+
+    private (string reg, string mod) BuildHelpMessage() {
+        // Note: This may not work for more international groups...
+        // TODO Find a way to grab the slash command name directly from Discord, place them here. Will need a different type of formatting
+        var RegularCommandsField = $"""
+            `/{LC("help.name")}` - {LC("help.description")}
+            `/{LC("list.name")}` - {LC("list.description")}
+            `/{LC("set.name")}` - {LC("set.description")}
+            `/{LC("remove.name")}` - {LC("remove.description")}
+            """;
+        var ModCommandsField = $"""
+            `/{LC("config.name")}` - {LC("config.description")}
+            ` ⤷{LC("config.use-12hour.name")}` - {LC("config.use-12hour.description")}
+            ` ⤷{LC("config.private-confirms.name")}` - {LC("config.private-confirms.description")}
+            ` ⤷{LC("config.set-for.name")}` - {LC("config.set-for.description")}
+            ` ⤷{LC("config.remove-for.name")}` - {LC("config.remove-for.description")}
+            """;
+        return (RegularCommandsField, ModCommandsField);
     }
 }

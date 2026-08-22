@@ -4,13 +4,14 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using NodaTime;
+using static WorldTime.Localization.CommandsEnUS;
 
 namespace WorldTime.InteractionModules;
 
+[CommandContextType(InteractionContextType.Guild)]
 public class UserCommands : WTModuleBase {
-    [SlashCommand("list", HelpCommand.HelpList)]
-    [CommandContextType(InteractionContextType.Guild)]
-    public async Task CmdList([Summary(description: "A specific user whose time to look up.")]SocketGuildUser? user = null) {
+    [SlashCommand(List.Name, List.Description)]
+    public async Task CmdList([Summary(description: List.User.Description)] SocketGuildUser? user = null) {
         if (user is not null) {
             Cache.Update(user);
             // User obtained passively. Go ahead with single listing with this data.
@@ -23,7 +24,7 @@ public class UserCommands : WTModuleBase {
         if (!refresh.IsCompleted) {
             // This may take a while
             isDeferred = true;
-            await DeferAsync().ConfigureAwait(false);
+            await RespondAsync(LRg("loadingUsers")).ConfigureAwait(false);
             await refresh.ConfigureAwait(false);
         }
         await CmdListWithoutParamAsync(isDeferred).ConfigureAwait(false);
@@ -31,8 +32,6 @@ public class UserCommands : WTModuleBase {
 
     // Guild-wide list output, called from the list command
     private async Task CmdListWithoutParamAsync(bool isDeferred) {
-        const string NoResultText = ":x: Nothing to show. Register your time zones with the bot using the `/set` command.";
-
         // Full query replaces previous manual steps; returns timezone/user dictionary
         var sortedUsers = DbContext.UserEntries
                 .Where(e => e.GuildId == Context.Guild.Id)
@@ -46,8 +45,8 @@ public class UserCommands : WTModuleBase {
                 .ToList();
         var cacheusers = Cache.GetGuild(Context.Guild.Id);
         if (cacheusers == null || sortedUsers.Count == 0) {
-            if (isDeferred) await ModifyOriginalResponseAsync(response => response.Content = NoResultText);
-            else await RespondAsync(NoResultText, ephemeral: true).ConfigureAwait(false);
+            if (isDeferred) await ModifyOriginalResponseAsync(response => response.Content = LRg("list.fullErrNoResults"));
+            else await RespondAsync(LRu("fullErrNoResults"), ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -66,7 +65,7 @@ public class UserCommands : WTModuleBase {
                 else buffer.Append(", ");
                 var useradd = userInfo.FormatName();
                 if (buffer.Length + useradd.Length > MaxSingleLineLength) {
-                    buffer.Append("others...");
+                    buffer.Append(LRg("list.truncatedLineEnding"));
                     break;
                 } else buffer.Append(useradd);
             }
@@ -80,7 +79,10 @@ public class UserCommands : WTModuleBase {
         Task OutputAsync(Embed msg) {
             if (!useFollowup) {
                 useFollowup = true;
-                if (isDeferred) return ModifyOriginalResponseAsync(response => response.Embed = msg);
+                if (isDeferred) return ModifyOriginalResponseAsync(response => {
+                    response.Content = "";
+                    response.Embed = msg;
+                });
                 else return RespondAsync(embed: msg);
             } else {
                 return FollowupAsync(embed: msg);
@@ -110,8 +112,8 @@ public class UserCommands : WTModuleBase {
             .SingleOrDefault();
         if (zone == null) {
             var isself = Context.User.Id == target.Id;
-            if (isself) await RespondAsync(":x: You do not have a time zone. Set it with `tz.set`.", ephemeral: true);
-            else await RespondAsync(":x: The given user does not have a time zone set.", ephemeral: true);
+            if (isself) await RespondAsync(LRu("list.sg1pErrNoResult"), ephemeral: true);
+            else await RespondAsync(LRu("list.sg3pErrNoResult"), ephemeral: true);
             return;
         }
 
@@ -119,36 +121,41 @@ public class UserCommands : WTModuleBase {
         await RespondAsync(embed: new EmbedBuilder().WithDescription(resulttext).Build());
     }
 
-    [SlashCommand("set", HelpCommand.HelpSet)]
-    [CommandContextType(InteractionContextType.Guild)]
-    public async Task CmdSet([Summary(description: "The new time zone to set."), Autocomplete<TzAutocompleteHandler>]string zone) {
+    [SlashCommand(Set.Name, Set.Description)]
+    public async Task CmdSet([Summary(description: Set.Zone.Description), Autocomplete<TzAutocompleteHandler>] string zone) {
         var parsedzone = ParseTimeZone(zone);
         if (parsedzone == null) {
-            await RespondAsync(ErrInvalidZone, ephemeral: true);
+            if (HasEphemeralConfirms()) {
+                await RespondAsync(LRu("errParseZone"), ephemeral: true).ConfigureAwait(false);
+            } else {
+                await RespondAsync(LRg("errParseZone")).ConfigureAwait(false);
+            }
             return;
         }
         using var db = DbContext;
         await UpdateDbUserAsync((SocketGuildUser)Context.User, parsedzone);
-        await RespondAsync($":white_check_mark: Your time zone has been set to **{parsedzone}**.",
-            ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
-            .ConfigureAwait(false);
+        if (HasEphemeralConfirms()) {
+            await RespondAsync(LRu("set", parsedzone), ephemeral: true).ConfigureAwait(false);
+        } else {
+            await RespondAsync(LRg("set", parsedzone)).ConfigureAwait(false);
+        }
     }
 
-    [SlashCommand("remove", HelpCommand.HelpRemove)]
-    [CommandContextType(InteractionContextType.Guild)]
+    [SlashCommand(Remove.Name, Remove.Description)]
     public async Task CmdRemove() {
         using var db = DbContext;
         var success = await DeleteDbUserAsync((SocketGuildUser)Context.User);
-        if (success) await RespondAsync(":white_check_mark: Your zone has been removed.",
-                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
-                .ConfigureAwait(false);
-        else await RespondAsync(":x: You don't have a time zone set.",
-                ephemeral: db.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault()?.EphemeralConfirm ?? false)
-                .ConfigureAwait(false);
+
+        if (HasEphemeralConfirms()) {
+            await RespondAsync(success ? LRu("remove.success") : LRu("remove.notExist"), ephemeral: true).ConfigureAwait(false);
+        } else {
+            await RespondAsync(success ? LRg("remove.success") : LRg("remove.notExist")).ConfigureAwait(false);
+        }
     }
 
     private bool? ampm;
-    private bool Is12Hour { get {
+    private bool Is12Hour {
+        get {
             if (ampm.HasValue) return (bool)ampm;
             ampm = DbContext.GuildSettings
                 .Where(s => s.GuildId == Context.Guild.Id)
@@ -163,6 +170,7 @@ public class UserCommands : WTModuleBase {
     /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
     /// </summary>
     private string TzPrint(DateTimeZone tz) {
+        // TODO use localization info?
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
         var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
         string fullstr;

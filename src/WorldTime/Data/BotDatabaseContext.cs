@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NoiPublicBot;
+using NoiPublicBot.Common.UserCache;
 
 namespace WorldTime.Data;
 
-public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> options) : DbContext(options) {
+public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> options) : DbContext(options), IWarmCacheAwareContext {
     public DbSet<UserEntry> UserEntries { get; set; } = null!;
     public DbSet<GuildConfiguration> GuildSettings { get; set; } = null!;
+    public DbSet<EFWarmCacheEntry> WarmCache { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         // No foreign key references between the two. This is on purpose.
@@ -25,6 +27,8 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
                     dbstr => DateTimeZoneProviders.Tzdb[dbstr!]
                 );
         });
+
+        modelBuilder.ApplyConfiguration(new EFWarmCacheConfig());
     }
 
     /// <summary>
@@ -34,7 +38,7 @@ public sealed class BotDatabaseContext(DbContextOptions<BotDatabaseContext> opti
     internal static BotDatabaseContext New() {
         return new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
             .UseNpgsql(Instance.SqlConnectionString.ConnectionString,
-            npgopts => npgopts.UseNodaTime())
+                npgopts => npgopts.UseNodaTime())
             .UseSnakeCaseNamingConvention()
             .Options);
     }

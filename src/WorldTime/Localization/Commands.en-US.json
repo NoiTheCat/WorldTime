@@ -1,0 +1,66 @@
+{
+    "config": {
+        "name": "config",
+        "description": "Configuration commands for World Time.",
+        "use-12hour": {
+            "name": "use-12hour",
+            "description": "Sets whether to use the 12-hour (AM/PM) format in time zone listings.",
+            "setting": {
+                "name": "setting",
+                "description": "True to enable, False to disable."
+            }
+        },
+        "private-confirms": {
+            "name": "private-confirms",
+            "description": "Sets whether to make set/update confirmations visible only to the user.",
+            "setting": {
+                "name": "setting",
+                "description": "True to enable, False to disable."
+            }
+        },
+        "set-for": {
+            "name": "set-for",
+            "description": "Sets/updates time zone for a given user.",
+            "user": {
+                "name": "user",
+                "description": "The user whose time zone to modify."
+            },
+            "zone": {
+                "name": "zone",
+                "description": "The new time zone to set."
+            }
+        },
+        "remove-for": {
+            "name": "remove-for",
+            "description": "Removes time zone for a given user.",
+            "user": {
+                "name": "user",
+                "description": "The user whose time zone to remove."
+            }
+        }
+    },
+    "help": {
+        "name": "help",
+        "description": "Displays a list of available bot commands."
+    },
+    "list": {
+        "name": "list",
+        "description": "Shows the current time for all recently active known users.",
+        "user": {
+            "name": "user",
+            "description": "A specific user whose time to look up."
+        }
+    },
+    "set": {
+        "name": "set",
+        "description": "Adds or updates your time zone to the bot.",
+        "zone": {
+            "name": "zone",
+            "description": "The new time zone to set."
+        }
+    },
+    "remove": {
+        "name": "remove",
+        "description": "Removes your time zone information from this bot."
+    }
+}

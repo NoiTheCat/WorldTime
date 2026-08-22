@@ -1,0 +1,48 @@
+{
+    // This file roughly follows the hierarchy from Commands, but is not subject to any outside restrictions.
+    // Strings not found in other translations will fall back to those found in this file.
+    // Common responses:
+    "errGeneric": ":x: An unknown error occurred. If it persists, please notify the bot owner.",
+    "errParseZone": ":x: Unknown time zone. To find your time zone, please refer to: https://zones.arilyn.cc/",
+    "loadingUsers": "<a:bot_thinking:1468047802721374403> Please wait a moment. Gathering data...",
+
+    "help": {
+        "mainHead": "Help & About",
+        "mainBody": "Thank you for using World Time!\nSupport, data policy, more info: https://noithecat.dev/bots/WorldTime\n\nThis bot is is provided for free - period. There are no paywalls, subscriptions, or hidden exclusive features. If you'd like, please consider [supporting the author](https://ko-fi.com/noithecat).",
+        "regCmdHead": "Commands",
+        "modCmdHead": "Moderator commands",
+        "zonesHead": "Zones",
+        "zonesBody": "This bot accepts zone names from the IANA Time Zone Database (a.k.a. Olson Database). A useful tool to determine yours can be found at: https://zones.arilyn.cc/",
+        "warnDM": "Please be aware that this bot only works in servers. None of the other commands will work within a DM."
+    },
+
+    "config": {
+        "use-12hour": {
+            "confirm": ":white_check_mark: Time listing set to **{0}** format.",
+            "enable": "AM/PM",
+            "disable": "24-hour"
+        },
+        "private-confirms": {
+            "confirm": ":white_check_mark: Private confirmations **{0}**.",
+            "enable": "enabled",
+            "disable": "disabled"
+        },
+        "set-for": ":white_check_mark: Time zone for **{0}** set to **{1}**.",
+        "remove-for": {
+            "success": ":white_check_mark: Removed zone information for **{0}**.",
+            "notExist": ":white_check_mark: No time zone is set for **{0}**."
+        }
+    },
+    "list": {
+        "truncatedLineEnding": "others...",
+        "fullErrNoResults": ":x: Nothing to show. Register time zones by using the `/set` command.",
+        // TODO hardcoded command name
+        "sg1pErrNoResult": ":x: You do not have a time zone. Set it with `tz.set`.",
+        "sg3pErrNoResult": ":x: The given user does not have a time zone set."
+    },
+    "set": ":white_check_mark: Your time zone has been set to **{0}**.",
+    "remove": {
+        "success": ":white_check_mark: Your zone has been removed.",
+        "notExist": ":x: You don't have a time zone set."
+    }
+}
