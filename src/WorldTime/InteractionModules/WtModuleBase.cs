@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Extensions;
 using NoiPublicBot;
@@ -49,15 +50,19 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     /// <summary>
     /// Inserts/updates the specified user in the database.
     /// </summary>
-    protected async Task UpdateDbUserAsync(SocketGuildUser user, DateTimeZone timezone) {
-        var tuser = DbContext.UserEntries
-            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
-        if (tuser == null) {
+    protected async Task UpdateDbUserAsync(SocketGuildUser user, DateTimeZone timezone)
+    {
+        var tuser = await DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id)
+            .AsAsyncEnumerable()
+            .SingleOrDefaultAsync().ConfigureAwait(false);
+        if (tuser == null)
+        {
             tuser = new UserEntry() { UserId = user.Id, GuildId = user.Guild.Id };
             DbContext.Add(tuser);
         }
         tuser.TimeZone = timezone;
-        await DbContext.SaveChangesAsync();
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -67,28 +72,42 @@ public class WTModuleBase : InteractionModuleBase<SocketInteractionContext> {
     /// <see langword="true"/> if the removal was successful.
     /// <see langword="false"/> if the user did not exist.
     /// </returns>
-    protected async Task<bool> DeleteDbUserAsync(SocketGuildUser user) {
-        var tuser = DbContext.UserEntries
-            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id).SingleOrDefault();
+    protected async Task<bool> DeleteDbUserAsync(SocketGuildUser user)
+    {
+        var tuser = await DbContext.UserEntries
+            .Where(u => u.UserId == user.Id && u.GuildId == user.Guild.Id)
+            .ToAsyncEnumerable()
+            .SingleOrDefaultAsync().ConfigureAwait(false);
         if (tuser == null) return false;
         DbContext.Remove(tuser);
         await DbContext.SaveChangesAsync();
         return true;
     }
 
-    protected GuildConfiguration GetGuildConf(ulong guildId) {
-        var gs = DbContext.GuildSettings.Where(r => r.GuildId == Context.Guild.Id).SingleOrDefault();
-        if (gs == null) {
+    protected async Task<GuildConfiguration> GetGuildConfAsync()
+    {
+        var gs = await DbContext.GuildSettings
+            .Where(r => r.GuildId == Context.Guild.Id)
+            .AsAsyncEnumerable()
+            .SingleOrDefaultAsync().ConfigureAwait(false);
+        if (gs == null)
+        {
             gs = new() { GuildId = Context.Guild.Id };
             DbContext.Add(gs);
         }
         return gs;
     }
 
-    protected bool HasEphemeralConfirms()
-        => DbContext.GuildSettings
-            .Where(r => r.GuildId == Context.Guild.Id)
-            .SingleOrDefault()?.EphemeralConfirm ?? false;
+    private AsyncLazy<bool>? _ephemeral;
+    protected Task<bool> IsConfEphemeralConfEnableAsync()
+    {
+        _ephemeral ??= new(async () => (await DbContext.GuildSettings
+                .Where(r => r.GuildId == Context.Guild.Id)
+                .AsAsyncEnumerable()
+                .Select(s => (bool?)s.EphemeralConfirm)
+                .SingleOrDefaultAsync().ConfigureAwait(false)) ?? false);
+        return _ephemeral.Task;
+    }
     #endregion
 
     /// <summary>Get string from Commands using guild locale.</summary>

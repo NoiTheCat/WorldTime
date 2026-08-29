@@ -3,6 +3,7 @@ using System.Text;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using static WorldTime.Localization.CommandsEnUS;
 
@@ -32,19 +33,21 @@ public class UserCommands : WTModuleBase {
 
     // Guild-wide list output, called from the list command
     private async Task CmdListWithoutParamAsync(bool isDeferred) {
-        // Full query replaces previous manual steps; returns timezone/user dictionary
-        var sortedUsers = DbContext.UserEntries
+        var is12hour = await IsConf12HrEnableAsync().ConfigureAwait(false);
+        // Create dictionary of timezone -> users
+        var sortedUsers = (await DbContext.UserEntries.AsNoTracking()
                 .Where(e => e.GuildId == Context.Guild.Id)
                 .GroupBy(e => e.TimeZone)
                 .Select(e => new { e.Key, Users = e.Select(x => x.UserId).ToList() })
-                .ToList() // force evaluation - this becomes client-side
-                .Select(o => (Area: TzPrint(o.Key), o.Users))
+                .ToListAsync().ConfigureAwait(false)) // database query done; processing becomes client-side
+                .Select(o => (Area: TzPrint(o.Key, is12hour), o.Users))
                 .GroupBy(g => g.Area)
                 .Select(e => (Area: e.Key, Subscribers: e.SelectMany(u => u.Users).Shuffle()))
                 .OrderBy(x => x.Area)
                 .ToList();
         var cacheusers = Cache.GetGuild(Context.Guild.Id);
-        if (cacheusers == null || sortedUsers.Count == 0) {
+        if (cacheusers == null || sortedUsers.Count == 0)
+        {
             if (isDeferred) await ModifyOriginalResponseAsync(response => response.Content = LRg("list.fullErrNoResults"));
             else await RespondAsync(LRu("fullErrNoResults"), ephemeral: true).ConfigureAwait(false);
             return;
@@ -90,94 +93,116 @@ public class UserCommands : WTModuleBase {
         }
 
         var resultout = new StringBuilder();
-        foreach (var line in outputlines) {
-            if (resultout.Length + line.Length > MaxSingleOutputLength) {
-                await OutputAsync(new EmbedBuilder().WithDescription(resultout.ToString()).Build()).ConfigureAwait(false);
+        foreach (var line in outputlines)
+        {
+            if (resultout.Length + line.Length > MaxSingleOutputLength)
+            {
+                await OutputAsync(new EmbedBuilder()
+                    .WithDescription(resultout.ToString())
+                    .Build()).ConfigureAwait(false);
                 resultout.Clear();
             }
             if (resultout.Length > 0) resultout.AppendLine(); // avoids trailing newline by adding to the previous line
             resultout.Append(line);
         }
-        if (resultout.Length > 0) {
-            await OutputAsync(new EmbedBuilder().WithDescription(resultout.ToString()).Build()).ConfigureAwait(false);
+        if (resultout.Length > 0)
+        {
+            await OutputAsync(new EmbedBuilder()
+                .WithDescription(resultout.ToString())
+                .Build()).ConfigureAwait(false);
         }
     }
 
     // Single user's listing output, called from the list command
-    private async Task CmdListWithUserParamAsync(SocketGuildUser target) {
-        var zone = DbContext.UserEntries
+    private async Task CmdListWithUserParamAsync(SocketGuildUser target)
+    {
+        var zone = await DbContext.UserEntries
             .Where(e => e.GuildId == Context.Guild.Id)
             .Where(e => e.UserId == target.Id)
             .Select(e => e.TimeZone)
-            .SingleOrDefault();
-        if (zone == null) {
+            .AsAsyncEnumerable()
+            .SingleOrDefaultAsync().ConfigureAwait(false);
+        if (zone == null)
+        {
             var isself = Context.User.Id == target.Id;
             if (isself) await RespondAsync(LRu("list.sg1pErrNoResult"), ephemeral: true);
             else await RespondAsync(LRu("list.sg3pErrNoResult"), ephemeral: true);
             return;
         }
 
-        var resulttext = TzPrint(zone)[6..] + ": " + Cache.GetGuild(Context.Guild.Id)![target.Id].FormatName();
+        var resulttext = TzPrint(zone, await IsConf12HrEnableAsync().ConfigureAwait(false))[6..]
+            + ": " + Cache.GetGuild(Context.Guild.Id)![target.Id].FormatName();
         await RespondAsync(embed: new EmbedBuilder().WithDescription(resulttext).Build());
     }
 
     [SlashCommand(Set.Name, Set.Description)]
     public async Task CmdSet([Summary(description: Set.Zone.Description), Autocomplete<TzAutocompleteHandler>] string zone) {
         var parsedzone = ParseTimeZone(zone);
-        if (parsedzone == null) {
-            if (HasEphemeralConfirms()) {
+        if (parsedzone == null)
+        {
+            if (await IsConfEphemeralConfEnableAsync().ConfigureAwait(false))
+            {
                 await RespondAsync(LRu("errParseZone"), ephemeral: true).ConfigureAwait(false);
-            } else {
+            }
+            else
+            {
                 await RespondAsync(LRg("errParseZone")).ConfigureAwait(false);
             }
             return;
         }
-        using var db = DbContext;
+
         await UpdateDbUserAsync((SocketGuildUser)Context.User, parsedzone);
-        if (HasEphemeralConfirms()) {
+        if (await IsConfEphemeralConfEnableAsync().ConfigureAwait(false))
+        {
             await RespondAsync(LRu("set", parsedzone), ephemeral: true).ConfigureAwait(false);
-        } else {
+        }
+        else
+        {
             await RespondAsync(LRg("set", parsedzone)).ConfigureAwait(false);
         }
     }
 
     [SlashCommand(Remove.Name, Remove.Description)]
     public async Task CmdRemove() {
-        using var db = DbContext;
         var success = await DeleteDbUserAsync((SocketGuildUser)Context.User);
 
-        if (HasEphemeralConfirms()) {
+        if (await IsConfEphemeralConfEnableAsync().ConfigureAwait(false)) {
             await RespondAsync(success ? LRu("remove.success") : LRu("remove.notExist"), ephemeral: true).ConfigureAwait(false);
         } else {
             await RespondAsync(success ? LRg("remove.success") : LRg("remove.notExist")).ConfigureAwait(false);
         }
     }
 
-    private bool? ampm;
-    private bool Is12Hour {
-        get {
-            if (ampm.HasValue) return (bool)ampm;
-            ampm = DbContext.GuildSettings
+    private AsyncLazy<bool>? _ampm;
+    private Task<bool> IsConf12HrEnableAsync()
+    {
+        _ampm ??= new(async () => (await DbContext.GuildSettings
                 .Where(s => s.GuildId == Context.Guild.Id)
-                .SingleOrDefault()?
-                .Use12HourTime ?? false;
-            return (bool)ampm;
-        }
+                .Select(s => (bool?)s.Use12HourTime)
+                .AsAsyncEnumerable()
+                .SingleOrDefaultAsync().ConfigureAwait(false)) ?? false);
+        return _ampm.Task;
     }
 
     /// <summary>
     /// Returns a string displaying the current time in the given time zone.
     /// The result begins with six numbers for sorting purposes. Must be trimmed before output.
     /// </summary>
-    private string TzPrint(DateTimeZone tz) {
+    private string TzPrint(DateTimeZone tz, bool use12HourTime)
+    {
         // TODO use localization info?
         var now = SystemClock.Instance.GetCurrentInstant().InZone(tz);
         var sortpfx = now.ToString("MMddHH", DateTimeFormatInfo.InvariantInfo);
         string fullstr;
-        if (Is12Hour) {
+        if (use12HourTime)
+        {
             var ap = now.ToString("tt", DateTimeFormatInfo.InvariantInfo).ToLowerInvariant();
             fullstr = now.ToString($"MMM' 'dd', 'hh':'mm'{ap} 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
-        } else fullstr = now.ToString("dd'-'MMM', 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
+        }
+        else
+        {
+            fullstr = now.ToString("dd'-'MMM', 'HH':'mm' 'x' (UTC'o<g>')'", DateTimeFormatInfo.InvariantInfo);
+        }
         return $"{sortpfx}● `{fullstr}`";
     }
 }
