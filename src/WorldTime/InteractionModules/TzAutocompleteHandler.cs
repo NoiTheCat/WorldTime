@@ -6,12 +6,13 @@ using WorldTime.Data;
 namespace WorldTime.InteractionModules;
 
 public class TzAutocompleteHandler : TimezoneAutocompleteBase {
-    protected override List<(DateTimeZone zone, int count)> GetPopularityCounts() {
+    protected override async Task<IEnumerable<(DateTimeZone zone, int count)>> GetPopularityCountsAsync()
+    {
         using var db = BotDatabaseContext.New();
-        return [.. db.UserEntries.AsNoTracking()
+        return (await db.UserEntries.AsNoTracking()
             .GroupBy(u => u.TimeZone)
             .Select(g => new { Zone = g.Key, Count = g.Count() })
-            .AsEnumerable()
-            .Select(i => (i.Zone, i.Count))];
+            .ToListAsync().ConfigureAwait(false))
+            .Select(s => ValueTuple.Create(s.Zone, s.Count)); // Cannot use ValueTuple in EF Core select (for now?)
     }
 }

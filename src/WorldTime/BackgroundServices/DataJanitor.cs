@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using NoiPublicBot;
 using NoiPublicBot.BackgroundServices;
-using NoiPublicBot.Common;
 using NoiPublicBot.Common.UserCache;
 using WorldTime.Data;
 
@@ -49,11 +48,12 @@ sealed class DataJanitor : BackgroundService {
             var local = cache.GetGuild(guild.Id, false)?.Keys;
             if (local == null) continue;
 
-            foreach (var queue in local.Chunk(1000)) {
+            foreach (var queue in local.Chunk(1000))
+            {
                 updatedUsers += await db.UserEntries
                     .Where(gu => gu.GuildId == guild.Id)
                     .Where(gu => local.Contains(gu.UserId))
-                    .ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token);
+                    .ExecuteUpdateAsync(upd => upd.SetProperty(p => p.LastSeen, now), token).ConfigureAwait(false);
             }
         }
         Log($"Refreshed {updatedUsers} users.");
