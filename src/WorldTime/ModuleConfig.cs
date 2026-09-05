@@ -11,7 +11,9 @@ using WorldTime.Localization;
 public class ModuleConfig : ModuleConfigBase
 {
     public override IEnumerable<Type> BackgroundServices => [
+#if !DEBUG
         typeof(DataJanitor),
+#endif
         typeof(CacheRefresher)
     ];
 
