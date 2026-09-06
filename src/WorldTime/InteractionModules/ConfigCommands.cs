@@ -1,6 +1,4 @@
-using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 using static WorldTime.Localization.CommandsEnUS.Config;
 
 namespace WorldTime.InteractionModules;

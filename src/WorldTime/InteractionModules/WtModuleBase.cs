@@ -1,12 +1,7 @@
 using System.Collections.ObjectModel;
-using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using NodaTime.Extensions;
-using NoiPublicBot;
-using NoiPublicBot.Common.UserCache;
 using WorldTime.Data;
 using static WorldTime.Localization.StringProviders;
 

@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using NoiPublicBot.Common;
 using WorldTime.Data;
 

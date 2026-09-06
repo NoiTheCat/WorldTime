@@ -1,10 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
-using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using static WorldTime.Localization.CommandsEnUS;
 
 namespace WorldTime.InteractionModules;

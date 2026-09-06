@@ -1,8 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using NodaTime;
 using NoiPublicBot.BackgroundServices;
-using NoiPublicBot.Common.UserCache;
 using Npgsql;
 using WorldTime.Data;
 

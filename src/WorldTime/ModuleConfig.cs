@@ -1,8 +1,6 @@
 using Discord.Interactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using NoiPublicBot;
-using NoiPublicBot.Common.UserCache;
 using Serilog.Events;
 using WorldTime.BackgroundServices;
 using WorldTime.Data;
