@@ -18,7 +18,7 @@ public class UserCommands : WTModuleBase {
         }
 
         var isDeferred = false;
-        var refresh = Cache.RequestGuildRefreshAsync(DbContext, Context.Guild.Id, ModuleConfig.FilterAllMissing);
+        var refresh = Cache.RequestGuildRefreshAsync(DbContext, Context.Guild.Id, CacheFilters.RegisteredNotInCache);
         if (!refresh.IsCompleted) {
             // This may take a while
             isDeferred = true;
