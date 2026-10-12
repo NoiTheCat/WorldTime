@@ -5,6 +5,8 @@ using Serilog.Events;
 using WorldTime.Data;
 using WorldTime.Localization;
 
+namespace WorldTime;
+
 public class ModuleConfig : ModuleConfigBase
 {
     public override IEnumerable<Type> BackgroundServices => [
