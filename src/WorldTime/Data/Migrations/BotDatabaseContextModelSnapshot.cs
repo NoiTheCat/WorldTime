@@ -17,7 +17,7 @@ namespace WorldTime.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -25,79 +25,67 @@ namespace WorldTime.Data.Migrations
             modelBuilder.Entity("NoiPublicBot.Common.UserCache.EFWarmCacheEntry", b =>
                 {
                     b.Property<decimal>("GuildId")
-                        .HasColumnType("numeric(20,0)")
-                        .HasColumnName("guild_id");
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)")
-                        .HasColumnName("user_id");
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<string>("Data")
                         .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("data");
+                        .HasColumnType("jsonb");
 
                     b.Property<Instant>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
+                        .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("GuildId", "UserId")
-                        .HasName("pk_warm_cache");
+                    b.HasKey("GuildId", "UserId");
 
-                    b.ToTable("warm_cache", (string)null);
+                    b.ToTable("WarmCache");
                 });
 
             modelBuilder.Entity("WorldTime.Data.GuildConfiguration", b =>
                 {
                     b.Property<decimal>("GuildId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("numeric(20,0)")
-                        .HasColumnName("guild_id");
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<bool>("EphemeralConfirm")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ephemeral_confirm");
+                        .HasColumnType("boolean");
+
+                    b.Property<LocalDate>("LastSeen")
+                        .HasColumnType("date");
 
                     b.Property<bool>("Use12HourTime")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("use12hour_time");
+                        .HasDefaultValue(false);
 
-                    b.HasKey("GuildId")
-                        .HasName("pk_guild_settings");
+                    b.HasKey("GuildId");
 
-                    b.ToTable("guild_settings", (string)null);
+                    b.ToTable("GuildSettings");
                 });
 
             modelBuilder.Entity("WorldTime.Data.UserEntry", b =>
                 {
                     b.Property<decimal>("GuildId")
-                        .HasColumnType("numeric(20,0)")
-                        .HasColumnName("guild_id");
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)")
-                        .HasColumnName("user_id");
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<Instant>("LastSeen")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen")
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("TimeZone")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("time_zone");
+                        .HasColumnType("text");
 
-                    b.HasKey("GuildId", "UserId")
-                        .HasName("pk_user_entries");
+                    b.HasKey("GuildId", "UserId");
 
-                    b.HasIndex("GuildId")
-                        .HasDatabaseName("ix_user_entries_guild_id");
+                    b.HasIndex("GuildId");
 
-                    b.ToTable("user_entries", (string)null);
+                    b.ToTable("UserEntries");
                 });
 #pragma warning restore 612, 618
         }
