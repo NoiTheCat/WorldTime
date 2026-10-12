@@ -23,24 +23,13 @@
     <Content Include="Localization/Responses.*.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-
-    <!-- Optimizations for cold boots -->
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
-    <!-- More aggressive JIT optimization strategy (debug symbols help it along) -->
-    <TieredCompilation>true</TieredCompilation>
-    <TieredPGO>true</TieredPGO>
-    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
-    <TieredCompilationQuickJitForLoops>true</TieredCompilationQuickJitForLoops>
-    <DebugType>embedded</DebugType>
-    <!-- Server GC better suits a long-running service -->
-    <ServerGarbageCollection>true</ServerGarbageCollection>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <!-- Settings suitable for long-running services -->
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <!-- WHEN UPDATING EF CORE: Don't forget to also run "dotnet tool update (dash dash)local dotnet-ef" -->
