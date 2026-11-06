@@ -1,6 +1,4 @@
-using Discord;
 using Discord.Interactions;
-using NoiPublicBot;
 using static WorldTime.Localization.CommandsEnUS;
 
 namespace WorldTime.InteractionModules;

@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>4.2.0</Version>
+    <Version>4.3.0</Version>
     <Authors>NoiTheCat</Authors>
     <OutputType>Exe</OutputType>
     <RootNamespace>WorldTime</RootNamespace>
@@ -23,24 +23,13 @@
     <Content Include="Localization/Responses.*.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-
-    <!-- Optimizations for cold boots -->
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
-    <!-- More aggressive JIT optimization strategy (debug symbols help it along) -->
-    <TieredCompilation>true</TieredCompilation>
-    <TieredPGO>true</TieredPGO>
-    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
-    <TieredCompilationQuickJitForLoops>true</TieredCompilationQuickJitForLoops>
-    <DebugType>embedded</DebugType>
-    <!-- Server GC better suits a long-running service -->
-    <ServerGarbageCollection>true</ServerGarbageCollection>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <!-- Settings suitable for long-running services -->
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <!-- WHEN UPDATING EF CORE: Don't forget to also run "dotnet tool update (dash dash)local dotnet-ef" -->
@@ -53,12 +42,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="NodaTime" Version="3.3.2" />
+    <PackageReference Include="NodaTime" Version="3.3.3" />
   </ItemGroup>
 
 </Project>

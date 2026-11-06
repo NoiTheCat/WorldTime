@@ -5,20 +5,22 @@ using Npgsql;
 
 namespace WorldTime.Data;
 
-public class DesignTimeFactory : IDesignTimeDbContextFactory<BotDatabaseContext> {
+public class DesignTimeFactory : IDesignTimeDbContextFactory<BotDatabaseContext>
+{
     // Used by EF Core tools for migrations, etc.
-    public BotDatabaseContext CreateDbContext(string[] args) {
+    public BotDatabaseContext CreateDbContext(string[] args)
+    {
         var conf = Loader.LoadAppConfiguration(args).Database;
-        var connstr = new NpgsqlConnectionStringBuilder() {
+        var connstr = new NpgsqlConnectionStringBuilder()
+        {
+            // Minimal settings just to connect
             Host = conf.Host,
             Database = conf.Database,
             Username = conf.Username,
             Password = conf.Password
         }.ConnectionString;
         return new BotDatabaseContext(new DbContextOptionsBuilder<BotDatabaseContext>()
-            .UseNpgsql(connstr,
-            npgopts => npgopts.UseNodaTime())
-            .UseSnakeCaseNamingConvention()
+            .UseNpgsql(connstr, pgopts => { pgopts.UseNodaTime(); })
             .Options);
     }
 }

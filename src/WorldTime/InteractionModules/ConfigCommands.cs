@@ -1,6 +1,4 @@
-using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 using static WorldTime.Localization.CommandsEnUS.Config;
 
 namespace WorldTime.InteractionModules;
@@ -11,7 +9,7 @@ namespace WorldTime.InteractionModules;
 public class ConfigCommands : WTModuleBase {
     [SlashCommand(Use12hour.Name, Use12hour.Description)]
     public async Task Cmd12Hour([Summary(description: Use12hour.Setting.Description)] bool setting) {
-        var gs = GetGuildConf(Context.Guild.Id);
+        var gs = await GetGuildConfAsync().ConfigureAwait(false);
         gs.Use12HourTime = setting;
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         if (gs.EphemeralConfirm) {
@@ -27,7 +25,7 @@ public class ConfigCommands : WTModuleBase {
 
     [SlashCommand(PrivateConfirms.Name, PrivateConfirms.Description)]
     public async Task PrivateConfirmations([Summary(description: PrivateConfirms.Setting.Description)] bool setting) {
-        var gs = GetGuildConf(Context.Guild.Id);
+        var gs = await GetGuildConfAsync();
         gs.EphemeralConfirm = setting;
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         await RespondAsync(LRg("config.private-confirms.confirm",
@@ -42,7 +40,7 @@ public class ConfigCommands : WTModuleBase {
         
         var newtz = ParseTimeZone(zone);
         if (newtz == null) {
-            if (HasEphemeralConfirms()) {
+            if (await IsConfEphemeralConfEnableAsync().ConfigureAwait(false)) {
                 await RespondAsync(LRu("errParseZone"), ephemeral: true).ConfigureAwait(false);
             } else {
                 await RespondAsync(LRg("errParseZone")).ConfigureAwait(false);
@@ -61,7 +59,7 @@ public class ConfigCommands : WTModuleBase {
         if (await DeleteDbUserAsync(user).ConfigureAwait(false)) {
             await RespondAsync(LRg("config.remove-for.success", cu.FormatName())).ConfigureAwait(false);
         } else {
-            if (HasEphemeralConfirms()) {
+            if (await IsConfEphemeralConfEnableAsync().ConfigureAwait(false)) {
                 await RespondAsync(LRg("config.remove-for.notExist", cu.FormatName()), ephemeral: true).ConfigureAwait(false);
             } else {
                 await RespondAsync(LRu("config.remove-for.notExist", cu.FormatName())).ConfigureAwait(false);
